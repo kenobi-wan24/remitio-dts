@@ -1,0 +1,27 @@
+PHASE 4 — CASES MODULE
+======================
+
+HOW TO COPY (merge, never replace folders):
+ 1. Extract this zip to Downloads\phase4 (NOT into the project).
+ 2. Open Downloads\phase4, select the app, resources, routes folders -> Copy.
+ 3. Open remitio-dts\ -> Paste.
+ 4. Windows asks about duplicates -> "Replace the files in the destination".
+
+FILES
+ NEW       app/Http/Controllers/LegalCaseController.php
+ NEW       app/Http/Requests/StoreLegalCaseRequest.php
+ NEW       app/Http/Requests/UpdateLegalCaseRequest.php
+ NEW       app/Policies/LegalCasePolicy.php
+ REPLACES  app/Models/LegalCase.php                     (search now also matches client name)
+ REPLACES  routes/web.php                               (cases placeholder -> real routes)
+ NEW       resources/views/components/form/searchable-select.blade.php
+ NEW       resources/views/cases/index.blade.php
+ NEW       resources/views/cases/_form.blade.php
+ NEW       resources/views/cases/create.blade.php
+ NEW       resources/views/cases/edit.blade.php
+ NEW       resources/views/cases/show.blade.php
+
+AFTER COPYING
+ php artisan optimize:clear
+ php artisan route:list --name=cases        (should list 8 routes)
+ npm run dev                                (keep running)
