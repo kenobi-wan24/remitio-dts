@@ -1,27 +1,41 @@
-PHASE 4 — CASES MODULE
-======================
+PHASE 5 — DOCUMENTS + ATTACHMENTS
+=================================
 
 HOW TO COPY (merge, never replace folders):
- 1. Extract this zip to Downloads\phase4 (NOT into the project).
- 2. Open Downloads\phase4, select the app, resources, routes folders -> Copy.
+ 1. Extract this zip to Downloads\phase5 (NOT into the project).
+ 2. Open Downloads\phase5, select the app, resources, routes folders -> Copy.
  3. Open remitio-dts\ -> Paste.
  4. Windows asks about duplicates -> "Replace the files in the destination".
 
 FILES
- NEW       app/Http/Controllers/LegalCaseController.php
- NEW       app/Http/Requests/StoreLegalCaseRequest.php
- NEW       app/Http/Requests/UpdateLegalCaseRequest.php
- NEW       app/Policies/LegalCasePolicy.php
- REPLACES  app/Models/LegalCase.php                     (search now also matches client name)
- REPLACES  routes/web.php                               (cases placeholder -> real routes)
- NEW       resources/views/components/form/searchable-select.blade.php
- NEW       resources/views/cases/index.blade.php
- NEW       resources/views/cases/_form.blade.php
- NEW       resources/views/cases/create.blade.php
- NEW       resources/views/cases/edit.blade.php
- NEW       resources/views/cases/show.blade.php
+ NEW       app/Services/AttachmentService.php            (folder is new too)
+ NEW       app/Http/Controllers/DocumentController.php
+ NEW       app/Http/Controllers/DocumentAttachmentController.php
+ REPLACES  app/Http/Controllers/DashboardController.php  (tiny fix: trashed-document check)
+ NEW       app/Http/Requests/StoreDocumentRequest.php
+ NEW       app/Http/Requests/UpdateDocumentRequest.php
+ NEW       app/Policies/DocumentPolicy.php
+ NEW       app/Policies/DocumentAttachmentPolicy.php
+ REPLACES  app/Models/Document.php                        (search also matches client & case)
+ REPLACES  routes/web.php
+ NEW       resources/views/components/due-badge.blade.php
+ NEW       resources/views/components/file-input.blade.php
+ REPLACES  resources/views/dashboard.blade.php            (stat cards now clickable)
+ NEW       resources/views/documents/index.blade.php
+ NEW       resources/views/documents/_form.blade.php
+ NEW       resources/views/documents/create.blade.php
+ NEW       resources/views/documents/edit.blade.php
+ NEW       resources/views/documents/show.blade.php
 
 AFTER COPYING
  php artisan optimize:clear
- php artisan route:list --name=cases        (should list 8 routes)
- npm run dev                                (keep running)
+ php artisan route:list --name=document      (should list 12 routes)
+ php artisan route:list --name=attachments   (should list 2 routes)
+ npm run dev                                 (keep running)
+
+FILE UPLOAD LIMIT (important!)
+ PHP's default upload limit is often 2 MB. Our app allows 10 MB per file.
+ Find your php.ini:   php --ini
+ Set:   upload_max_filesize = 12M
+        post_max_size = 64M
+ Save, then stop and re-run `php artisan serve`.

@@ -100,6 +100,7 @@ class Document extends Model
         return $query->where('current_holder_id', $user instanceof User ? $user->id : $user);
     }
 
+    /** Tracking code, title, location — and (Phase 5) client name/code and case code/docket. */
     public function scopeSearch(Builder $query, ?string $term): Builder
     {
         if (blank($term)) {
@@ -110,7 +111,11 @@ class Document extends Model
             $like = '%'.trim($term).'%';
             $q->where('tracking_code', 'like', $like)
                 ->orWhere('title', 'like', $like)
-                ->orWhere('physical_location', 'like', $like);
+                ->orWhere('physical_location', 'like', $like)
+                ->orWhereHas('client', fn (Builder $client) => $client->search($term))
+                ->orWhereHas('legalCase', fn (Builder $case) => $case
+                    ->where('case_code', 'like', $like)
+                    ->orWhere('docket_number', 'like', $like));
         });
     }
 

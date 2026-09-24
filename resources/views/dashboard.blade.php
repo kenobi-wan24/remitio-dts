@@ -1,13 +1,19 @@
 <x-app-layout title="Dashboard">
     <x-page-header :title="$greeting.', '.$firstName"
-        subtitle="Here's what's happening in the office today, {{ now()->format('l, F j, Y') }}." />
+        subtitle="Here's what's happening in the office today, {{ now()->format('l, F j, Y') }}.">
+        <x-slot name="actions">
+            <x-button :href="route('documents.create')" icon="plus">Record Document</x-button>
+        </x-slot>
+    </x-page-header>
 
     {{-- Stats --}}
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <x-stat-card label="Active Cases" :value="$stats['active_cases']" icon="briefcase" color="blue" :href="route('cases.index')" />
         <x-stat-card label="Documents In Process" :value="$stats['open_documents']" icon="document-text" color="indigo" :href="route('documents.index')" />
-        <x-stat-card label="Overdue Documents" :value="$stats['overdue']" icon="exclamation-triangle" :color="$stats['overdue'] > 0 ? 'red' : 'green'" />
-        <x-stat-card label="Documents With Me" :value="$stats['with_me']" icon="inbox" color="amber" />
+        <x-stat-card label="Overdue Documents" :value="$stats['overdue']" icon="exclamation-triangle"
+            :color="$stats['overdue'] > 0 ? 'red' : 'green'" :href="route('documents.index', ['due' => 'overdue'])" />
+        <x-stat-card label="Documents With Me" :value="$stats['with_me']" icon="inbox" color="amber"
+            :href="route('documents.index', ['holder' => 'me'])" />
     </div>
 
     {{-- Recent movements --}}
@@ -20,7 +26,11 @@
 
                 <div class="min-w-0 flex-1">
                     <div class="flex flex-wrap items-center gap-2">
-                        <span class="font-mono text-xs font-semibold text-slate-900">{{ $movement->document?->tracking_code }}</span>
+                        @if ($movement->document && ! $movement->document->trashed())
+                            <a href="{{ route('documents.show', $movement->document) }}" class="font-mono text-xs font-semibold text-slate-900 hover:underline">{{ $movement->document->tracking_code }}</a>
+                        @else
+                            <span class="font-mono text-xs font-semibold text-slate-400">{{ $movement->document?->tracking_code }}</span>
+                        @endif
                         <x-status-badge :status="$movement->action" />
                         @if ($movement->to_status)
                             <x-icon name="chevron-right" class="h-3 w-3 text-slate-400" />

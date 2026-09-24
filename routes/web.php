@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DocumentAttachmentController;
+use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\LegalCaseController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
@@ -28,8 +30,20 @@ Route::middleware('auth')->group(function () {
     Route::resource('cases', LegalCaseController::class)
         ->parameters(['cases' => 'legal_case']);
 
+    // ── Phase 5: Documents & attachments ──
+    Route::patch('/documents/{document}/restore', [DocumentController::class, 'restore'])
+        ->withTrashed()
+        ->name('documents.restore');
+    Route::resource('documents', DocumentController::class);
+
+    Route::post('/documents/{document}/attachments', [DocumentAttachmentController::class, 'store'])
+        ->name('documents.attachments.store');
+    Route::get('/attachments/{attachment}/download', [DocumentAttachmentController::class, 'download'])
+        ->name('attachments.download');
+    Route::delete('/attachments/{attachment}', [DocumentAttachmentController::class, 'destroy'])
+        ->name('attachments.destroy');
+
     // ── Placeholders: each gets replaced by a real controller in its phase ──
-    Route::view('/documents', 'coming-soon', ['title' => 'Documents', 'phase' => 5])->name('documents.index');
     Route::view('/search', 'coming-soon', ['title' => 'Search', 'phase' => 7])->name('search');
     Route::view('/reports', 'coming-soon', ['title' => 'Reports', 'phase' => 9])->name('reports.index');
 

@@ -32,7 +32,8 @@ class DashboardController extends Controller
                 'with_me' => Document::open()->heldBy($user)->count(),
             ],
             'recentMovements' => DocumentMovement::query()
-                ->with(['document:id,tracking_code,title', 'actor:id,name', 'toUser:id,name'])
+                // deleted_at is selected so the view can tell if a document is in trash
+                ->with(['document:id,tracking_code,title,deleted_at', 'actor:id,name', 'toUser:id,name'])
                 ->latest('acted_at')
                 ->latest('id')
                 ->take(8)
