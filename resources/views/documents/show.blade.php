@@ -93,8 +93,18 @@
             </x-card>
         </div>
 
-        {{-- Right: attachments + history --}}
+        {{-- Right: tracking + attachments --}}
         <div class="space-y-6 lg:col-span-2">
+            {{-- Phase 6: Update Tracking --}}
+            <x-card title="Update Tracking" id="update-tracking">
+                @include('documents._movement-form')
+            </x-card>
+
+            {{-- Phase 6: Timeline --}}
+            <x-card title="Tracking History ({{ $document->movements->count() }})">
+                <x-movement-timeline :movements="$document->movements" />
+            </x-card>
+
             {{-- Attachments --}}
             <x-card title="Attachments ({{ $document->attachments->count() }})">
                 @if ($document->attachments->isNotEmpty())
@@ -146,38 +156,6 @@
                 </form>
             </x-card>
 
-            {{-- History (Phase 6 adds the "Move / Update" form and full timeline) --}}
-            <x-card title="Tracking History" :padding="false">
-                <ol class="divide-y divide-slate-100">
-                    @forelse ($document->movements as $movement)
-                        <li class="flex gap-4 px-5 py-4">
-                            <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
-                                <x-icon name="arrows-right-left" class="h-4 w-4" />
-                            </div>
-                            <div class="min-w-0 flex-1">
-                                <div class="flex flex-wrap items-center gap-2">
-                                    <x-status-badge :status="$movement->action" />
-                                    @if ($movement->to_status)
-                                        <x-status-badge :status="$movement->to_status" />
-                                    @endif
-                                </div>
-                                <p class="mt-1 text-sm text-slate-700">
-                                    by <span class="font-medium">{{ $movement->actor?->name ?? 'Unknown' }}</span>
-                                    @if ($movement->toUser) → now with <span class="font-medium">{{ $movement->toUser->name }}</span> @endif
-                                </p>
-                                @if ($movement->remarks)
-                                    <p class="mt-1 text-sm text-slate-500">{{ $movement->remarks }}</p>
-                                @endif
-                            </div>
-                            <time class="shrink-0 text-right text-xs text-slate-400" title="{{ $movement->acted_at->format('M d, Y h:i A') }}">
-                                {{ $movement->acted_at->format('M d, Y') }}<br>{{ $movement->acted_at->format('h:i A') }}
-                            </time>
-                        </li>
-                    @empty
-                        <li class="px-5 py-6 text-center text-sm text-slate-400">No movements recorded.</li>
-                    @endforelse
-                </ol>
-            </x-card>
         </div>
     </div>
 </x-app-layout>

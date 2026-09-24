@@ -4,6 +4,7 @@ use App\Http\Controllers\ClientController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentAttachmentController;
 use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\DocumentMovementController;
 use App\Http\Controllers\LegalCaseController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
@@ -42,6 +43,10 @@ Route::middleware('auth')->group(function () {
         ->name('attachments.download');
     Route::delete('/attachments/{attachment}', [DocumentAttachmentController::class, 'destroy'])
         ->name('attachments.destroy');
+
+    // ── Phase 6: Tracking (append-only — no edit/delete routes on purpose) ──
+    Route::post('/documents/{document}/movements', [DocumentMovementController::class, 'store'])
+        ->name('documents.movements.store');
 
     // ── Placeholders: each gets replaced by a real controller in its phase ──
     Route::view('/search', 'coming-soon', ['title' => 'Search', 'phase' => 7])->name('search');

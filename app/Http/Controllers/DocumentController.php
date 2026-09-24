@@ -13,6 +13,7 @@ use App\Models\DocumentType;
 use App\Models\LegalCase;
 use App\Models\User;
 use App\Services\AttachmentService;
+use App\Services\DocumentTracker;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -147,7 +148,13 @@ class DocumentController extends Controller
             'movements.toUser:id,name',
         ]);
 
-        return view('documents.show', compact('document'));
+        return view('documents.show', [
+            'document' => $document,
+            // Phase 6: data for the "Update Tracking" form
+            'availableActions' => app(DocumentTracker::class)->availableActions($document),
+            'users' => User::active()->orderBy('name')->pluck('name', 'id'),
+            'returnTo' => $document->movements->first()?->from_user_id, // who handed it to the current holder
+        ]);
     }
 
     public function edit(Document $document): View
