@@ -22,10 +22,12 @@ class DemoDataSeeder extends Seeder
 
     public function run(): void
     {
-        $this->users = User::active()->get();
-        $attorneys = $this->users->where('role', UserRole::Admin)->values();
+        // NOTE: factory state() closures are re-bound to the factory, so `$this`
+        // inside them is the FACTORY, not this seeder. Use local variables there.
+        $users = $this->users = User::active()->get();
+        $attorneys = $users->where('role', UserRole::Admin)->values();
 
-        $randomUser = fn () => ['created_by' => $this->users->random()->id];
+        $randomUser = fn () => ['created_by' => $users->random()->id];
 
         // 1) Clients
         $clients = Client::factory(16)->state($randomUser)->create()
@@ -37,7 +39,7 @@ class DemoDataSeeder extends Seeder
                 ->for($client)
                 ->state(fn () => [
                     'handling_attorney_id' => $attorneys->random()->id,
-                    'created_by' => $this->users->random()->id,
+                    'created_by' => $users->random()->id,
                 ])
                 ->create();
 
@@ -52,7 +54,7 @@ class DemoDataSeeder extends Seeder
 
         // 3) A few walk-in documents with no case (e.g. notarial)
         Document::factory(6)
-            ->state(fn () => ['client_id' => $clients->random()->id, 'created_by' => $this->users->random()->id])
+            ->state(fn () => ['client_id' => $clients->random()->id, 'created_by' => $users->random()->id])
             ->create()
             ->each(fn (Document $doc) => $this->simulateHistory($doc));
     }
