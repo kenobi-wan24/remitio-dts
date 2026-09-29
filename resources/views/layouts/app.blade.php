@@ -21,7 +21,8 @@
             ->filter()->take(2)->map(fn ($part) => mb_substr($part, 0, 1))->implode('');
     @endphp
 
-    <div x-data="{ sidebarOpen: false }" class="min-h-full">
+    <div x-data="{ sidebarOpen: false }" class="min-h-full"
+        x-on:keydown.window="if ($event.key === '/' && ! ['INPUT', 'TEXTAREA', 'SELECT'].includes($event.target.tagName)) { $event.preventDefault(); $refs.globalSearch.focus(); }">
 
         {{-- ── Mobile sidebar (off-canvas) ── --}}
         <div x-show="sidebarOpen" x-cloak class="relative z-50 lg:hidden" role="dialog" aria-modal="true">
@@ -48,7 +49,7 @@
 
                 <form action="{{ route('search') }}" method="GET" class="relative w-full max-w-md">
                     <x-icon name="magnifying-glass" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                    <input type="search" name="q" value="{{ request('q') }}" placeholder="Search tracking code, client, case..."
+                    <input type="search" name="q" x-ref="globalSearch" value="{{ request()->routeIs('search') ? request('q') : '' }}" placeholder="Search tracking code, client, case...  ( / )"
                         class="block w-full rounded-lg border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm placeholder:text-slate-400 focus:border-slate-400 focus:bg-white focus:ring-slate-400">
                 </form>
 

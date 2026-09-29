@@ -7,6 +7,7 @@ use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\DocumentMovementController;
 use App\Http\Controllers\LegalCaseController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SearchController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/dashboard');
@@ -17,6 +18,9 @@ Route::middleware('auth')->group(function () {
     // Profile (account self-deletion removed on purpose — users are deactivated, not deleted)
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+
+    // ── Phase 7: Global search ──
+    Route::get('/search', SearchController::class)->name('search');
 
     // ── Phase 3: Clients ──
     Route::patch('/clients/{client}/restore', [ClientController::class, 'restore'])
@@ -49,7 +53,6 @@ Route::middleware('auth')->group(function () {
         ->name('documents.movements.store');
 
     // ── Placeholders: each gets replaced by a real controller in its phase ──
-    Route::view('/search', 'coming-soon', ['title' => 'Search', 'phase' => 7])->name('search');
     Route::view('/reports', 'coming-soon', ['title' => 'Reports', 'phase' => 9])->name('reports.index');
 
     // ── Admin only ──

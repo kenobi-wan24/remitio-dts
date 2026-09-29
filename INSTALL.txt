@@ -1,25 +1,21 @@
-PHASE 6 — DOCUMENT TRACKING (70% milestone)
-===========================================
+PHASE 7 — DASHBOARD + GLOBAL SEARCH
+===================================
 
 HOW TO COPY (merge, never replace folders):
- 1. Extract this zip to Downloads\phase6 (NOT into the project).
- 2. Open Downloads\phase6, select the app, resources, routes folders -> Copy.
+ 1. Extract this zip to Downloads\phase7 (NOT into the project).
+ 2. Open Downloads\phase7, select the app, resources, routes folders -> Copy.
  3. Open remitio-dts\ -> Paste.
  4. Windows asks about duplicates -> "Replace the files in the destination".
 
 FILES
- REPLACES  app/Enums/MovementAction.php                  (adds icon() + description())
- NEW       app/Services/DocumentTracker.php              (the one place documents move)
- NEW       app/Http/Controllers/DocumentMovementController.php
- NEW       app/Http/Requests/StoreDocumentMovementRequest.php
- REPLACES  app/Http/Controllers/DocumentController.php   (show() passes form data)
- REPLACES  routes/web.php                                (adds documents.movements.store)
- REPLACES  resources/views/components/icon.blade.php     (9 new icons)
- NEW       resources/views/components/movement-timeline.blade.php
- NEW       resources/views/documents/_movement-form.blade.php
- REPLACES  resources/views/documents/show.blade.php      (form + timeline added)
+ REPLACES  app/Http/Controllers/DashboardController.php   (needs-attention, with-me, charts)
+ NEW       app/Http/Controllers/SearchController.php
+ REPLACES  routes/web.php                                 (search placeholder -> SearchController)
+ REPLACES  resources/views/dashboard.blade.php
+ NEW       resources/views/search.blade.php
+ NEW       resources/views/components/highlight.blade.php
+ REPLACES  resources/views/layouts/app.blade.php          (press "/" to focus search)
 
 AFTER COPYING
  php artisan optimize:clear
- php artisan route:list --name=movements     (should list 1 route: POST)
- npm run dev                                 (keep running)
+ npm run dev                                (keep running — new Tailwind classes)
