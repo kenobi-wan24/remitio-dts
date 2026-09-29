@@ -16,6 +16,7 @@ use App\Services\AttachmentService;
 use App\Services\DocumentTracker;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
@@ -37,6 +38,8 @@ class DocumentController extends Controller
             'holder' => $request->input('holder'),
             'due' => in_array($request->input('due'), ['overdue', 'soon', 'week'], true) ? $request->input('due') : null,
             'sort' => in_array($request->input('sort'), ['newest', 'oldest', 'due'], true) ? $request->input('sort') : 'newest',
+            // Phase 8: notarial register lookup
+            'notarial' => array_filter($request->only(['n_series', 'n_book', 'n_page', 'n_doc'])),
         ];
 
         $holderId = match (true) {
@@ -51,6 +54,12 @@ class DocumentController extends Controller
             ->search($request->input('q'))
             ->when($filters['type'], fn ($q, $type) => $q->where('document_type_id', $type))
             ->when($holderId, fn ($q, $id) => $q->heldBy($id))
+            ->notarialLookup([
+                'series' => $filters['notarial']['n_series'] ?? null,
+                'book' => isset($filters['notarial']['n_book']) ? strtoupper(trim($filters['notarial']['n_book'])) : null,
+                'page' => $filters['notarial']['n_page'] ?? null,
+                'doc' => $filters['notarial']['n_doc'] ?? null,
+            ])
             ->when($filters['due'], fn ($q, $due) => match ($due) {
                 'overdue' => $q->overdue(),
                 'soon' => $q->dueWithin(3),
@@ -105,6 +114,11 @@ class DocumentController extends Controller
     public function store(StoreDocumentRequest $request): RedirectResponse
     {
         $user = $request->user();
+
+        // Phase 8: warn about a likely duplicate before recording
+        if (! $request->boolean('confirm_duplicate') && ($duplicates = $this->possibleDuplicates($request->documentData()))) {
+            return back()->withInput()->with('duplicateDocuments', $duplicates);
+        }
 
         $document = DB::transaction(function () use ($request, $user) {
             $document = Document::create([
@@ -191,6 +205,31 @@ class DocumentController extends Controller
         return redirect()
             ->route('documents.show', $document)
             ->with('success', "Document {$document->tracking_code} has been restored.");
+    }
+
+    /**
+     * Same client + same document type + same title, received within 30 days
+     * of each other → probably the same document recorded twice.
+     */
+    private function possibleDuplicates(array $data): array
+    {
+        $received = Carbon::parse($data['date_received']);
+
+        return Document::query()
+            ->where('client_id', $data['client_id'])
+            ->where('document_type_id', $data['document_type_id'])
+            ->where('title', $data['title'])
+            ->whereBetween('date_received', [$received->copy()->subDays(30)->toDateString(), $received->copy()->addDays(30)->toDateString()])
+            ->take(5)
+            ->get()
+            ->map(fn (Document $doc) => [
+                'id' => $doc->id,
+                'code' => $doc->tracking_code,
+                'title' => $doc->title,
+                'status' => $doc->status->label(),
+                'received' => $doc->date_received->format('M d, Y'),
+            ])
+            ->all();
     }
 
     /** Dropdown data shared by create & edit. */

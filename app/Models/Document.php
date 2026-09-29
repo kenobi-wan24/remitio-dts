@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsActivity;
 use App\Enums\DocumentStatus;
 use App\Models\Concerns\GeneratesReferenceCode;
 use Illuminate\Database\Eloquent\Builder;
@@ -16,7 +17,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Document extends Model
 {
     /** @use HasFactory<\Database\Factories\DocumentFactory> */
-    use GeneratesReferenceCode, HasFactory, SoftDeletes;
+    use GeneratesReferenceCode, HasFactory, LogsActivity, SoftDeletes;
 
     protected $fillable = [
         'title',
@@ -27,6 +28,10 @@ class Document extends Model
         'status',
         'current_holder_id',
         'physical_location',
+        'notarial_doc_no',
+        'notarial_page_no',
+        'notarial_book_no',
+        'notarial_series',
         'date_received',
         'due_date',
         'created_by',
@@ -38,6 +43,9 @@ class Document extends Model
             'status' => DocumentStatus::class,
             'date_received' => 'date',
             'due_date' => 'date',
+            'notarial_doc_no' => 'integer',
+            'notarial_page_no' => 'integer',
+            'notarial_series' => 'integer',
         ];
     }
 
@@ -74,7 +82,33 @@ class Document extends Model
             && $this->due_date->betweenIncluded(today(), today()->addDays(3)));
     }
 
+    /**
+     * Phase 8: $document->notarial_reference
+     * → "Doc. No. 45; Page No. 9; Book No. III; Series of 2026" (null if not notarized)
+     */
+    protected function notarialReference(): Attribute
+    {
+        return Attribute::get(function () {
+            if (! $this->notarial_doc_no && ! $this->notarial_series) {
+                return null;
+            }
+
+            return "Doc. No. {$this->notarial_doc_no}; Page No. {$this->notarial_page_no}; "
+                ."Book No. {$this->notarial_book_no}; Series of {$this->notarial_series}";
+        });
+    }
+
     // ── Scopes ──────────────────────────────────────────────
+
+    /** Phase 8: find by notarial register numbers (any combination). */
+    public function scopeNotarialLookup(Builder $query, array $filters): Builder
+    {
+        return $query
+            ->when($filters['series'] ?? null, fn ($q, $v) => $q->where('notarial_series', (int) $v))
+            ->when($filters['book'] ?? null, fn ($q, $v) => $q->where('notarial_book_no', $v))
+            ->when($filters['page'] ?? null, fn ($q, $v) => $q->where('notarial_page_no', (int) $v))
+            ->when($filters['doc'] ?? null, fn ($q, $v) => $q->where('notarial_doc_no', (int) $v));
+    }
 
     /** Still being worked on in the office (not released/archived). */
     public function scopeOpen(Builder $query): Builder
@@ -162,5 +196,18 @@ class Document extends Model
     public function attachments(): HasMany
     {
         return $this->hasMany(DocumentAttachment::class)->latest();
+    }
+
+    // ── Activity log (Phase 9) ──────────────────────────────
+
+    public function activityLabel(): string
+    {
+        return "document {$this->tracking_code}";
+    }
+
+    /** Status/holder/location changes are logged as movements instead. */
+    protected function activityIgnoredAttributes(): array
+    {
+        return ['status', 'current_holder_id', 'physical_location'];
     }
 }

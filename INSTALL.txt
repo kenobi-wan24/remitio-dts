@@ -1,21 +1,28 @@
-PHASE 7 — DASHBOARD + GLOBAL SEARCH
-===================================
+PHASE 10 — REPORTS
+==================
 
 HOW TO COPY (merge, never replace folders):
- 1. Extract this zip to Downloads\phase7 (NOT into the project).
- 2. Open Downloads\phase7, select the app, resources, routes folders -> Copy.
+ 1. Extract this zip to Downloads\phase10 (NOT into the project).
+ 2. Open Downloads\phase10, select the app, resources, routes folders -> Copy.
  3. Open remitio-dts\ -> Paste.
  4. Windows asks about duplicates -> "Replace the files in the destination".
 
 FILES
- REPLACES  app/Http/Controllers/DashboardController.php   (needs-attention, with-me, charts)
- NEW       app/Http/Controllers/SearchController.php
- REPLACES  routes/web.php                                 (search placeholder -> SearchController)
- REPLACES  resources/views/dashboard.blade.php
- NEW       resources/views/search.blade.php
- NEW       resources/views/components/highlight.blade.php
- REPLACES  resources/views/layouts/app.blade.php          (press "/" to focus search)
+ NEW       app/Http/Controllers/ReportController.php
+ REPLACES  routes/web.php                                  (reports placeholder -> 5 report routes)
+ NEW       resources/views/components/print-layout.blade.php  (letterhead + print toolbar)
+ NEW       resources/views/reports/index.blade.php
+ NEW       resources/views/reports/documents.blade.php
+ NEW       resources/views/reports/movements.blade.php
+ NEW       resources/views/reports/notarial.blade.php
+ NEW       resources/views/reports/client-summary.blade.php
+ NEW       resources/views/reports/_summary-documents.blade.php
+ REPLACES  resources/views/clients/show.blade.php          ("Print Summary" button)
+
+OPTIONAL CLEAN-UP
+ resources/views/coming-soon.blade.php is no longer used by any route — you can delete it.
 
 AFTER COPYING
  php artisan optimize:clear
- npm run dev                                (keep running — new Tailwind classes)
+ php artisan route:list --name=reports     (should list 5 routes)
+ npm run dev

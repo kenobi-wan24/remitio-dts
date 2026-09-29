@@ -13,6 +13,7 @@ class StoreDocumentRequest extends UpdateDocumentRequest
     protected array $fields = [
         'title', 'document_type_id', 'client_id', 'legal_case_id',
         'description', 'physical_location', 'date_received', 'due_date',
+        'notarial_doc_no', 'notarial_page_no', 'notarial_book_no', 'notarial_series',
         'current_holder_id',
     ];
 

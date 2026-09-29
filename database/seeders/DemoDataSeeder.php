@@ -8,6 +8,7 @@ use App\Enums\UserRole;
 use App\Models\Client;
 use App\Models\Document;
 use App\Models\DocumentMovement;
+use App\Models\DocumentType;
 use App\Models\LegalCase;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -57,6 +58,39 @@ class DemoDataSeeder extends Seeder
             ->state(fn () => ['client_id' => $clients->random()->id, 'created_by' => $users->random()->id])
             ->create()
             ->each(fn (Document $doc) => $this->simulateHistory($doc));
+
+        // 4) Phase 8: notarial register numbers for notarized document types
+        $this->assignNotarialNumbers();
+    }
+
+    /**
+     * Gives notarizable documents a register reference, numbered in order
+     * per year: Doc. No. 1, 2, 3... · 4 docs per page · 100 docs per book.
+     */
+    private function assignNotarialNumbers(): void
+    {
+        $types = DocumentType::whereIn('name', [
+            'Affidavit', 'Deed', 'Power of Attorney', 'Contract / Agreement', 'Certificate',
+        ])->pluck('id');
+
+        $books = ['I', 'II', 'III', 'IV', 'V'];
+        $counter = [];
+
+        Document::whereIn('document_type_id', $types)
+            ->orderBy('date_received')
+            ->orderBy('id')
+            ->get()
+            ->each(function (Document $doc) use (&$counter, $books) {
+                $series = $doc->date_received->year;
+                $n = $counter[$series] = ($counter[$series] ?? 0) + 1;
+
+                $doc->update([
+                    'notarial_series' => $series,
+                    'notarial_book_no' => $books[min(intdiv($n - 1, 100), 4)],
+                    'notarial_page_no' => intdiv($n - 1, 4) + 1,
+                    'notarial_doc_no' => $n,
+                ]);
+            });
     }
 
     /**

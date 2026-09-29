@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsActivity;
 use App\Enums\UserRole;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Builder;
@@ -13,7 +14,7 @@ use Illuminate\Notifications\Notifiable;
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, LogsActivity, Notifiable;
 
     protected $fillable = [
         'name',
@@ -78,5 +79,18 @@ class User extends Authenticatable
     public function activityLogs(): HasMany
     {
         return $this->hasMany(ActivityLog::class);
+    }
+
+    // ── Activity log (Phase 9) ──────────────────────────────
+
+    public function activityLabel(): string
+    {
+        return "user account {$this->name} ({$this->email})";
+    }
+
+    /** Activation is logged explicitly as activated/deactivated. */
+    protected function activityIgnoredAttributes(): array
+    {
+        return ['is_active', 'email_verified_at'];
     }
 }

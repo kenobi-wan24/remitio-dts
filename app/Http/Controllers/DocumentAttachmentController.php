@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DocumentAttachmentController extends Controller
@@ -19,11 +20,31 @@ class DocumentAttachmentController extends Controller
 
     public function store(Request $request, Document $document): RedirectResponse
     {
-        $request->validate(AttachmentService::rules(required: true), AttachmentService::messages());
+        $request->validate([
+            ...AttachmentService::rules(required: true),
+            'version_of' => ['nullable', Rule::exists('document_attachments', 'id')->where('document_id', $document->id)],
+            'version_notes' => ['nullable', 'string', 'max:255'],
+        ], AttachmentService::messages());
 
-        $count = $this->attachments->storeFiles($document, $request->file('attachments'), $request->user());
+        $versionOf = $request->filled('version_of') ? DocumentAttachment::find($request->input('version_of')) : null;
 
-        return back()->with('success', $count === 1 ? '1 file uploaded.' : "{$count} files uploaded.");
+        if ($versionOf && count($request->file('attachments')) > 1) {
+            return back()->withInput()->withErrors(['attachments' => 'Upload only one file when adding a new version.']);
+        }
+
+        $created = $this->attachments->storeFiles(
+            $document,
+            $request->file('attachments'),
+            $request->user(),
+            $versionOf,
+            $request->input('version_notes'),
+        );
+
+        $message = $versionOf
+            ? "Uploaded as version {$created[0]->version} of \"{$versionOf->original_name}\"."
+            : (count($created) === 1 ? '1 file uploaded.' : count($created).' files uploaded.');
+
+        return back()->with('success', $message);
     }
 
     /**
@@ -41,6 +62,16 @@ class DocumentAttachmentController extends Controller
         }
 
         return $disk->download($attachment->path, $attachment->original_name);
+    }
+
+    /** Phase 8: Lawyer/Owner marks the approved version. */
+    public function markFinal(DocumentAttachment $attachment): RedirectResponse
+    {
+        Gate::authorize('markFinal', $attachment);
+
+        $this->attachments->markFinal($attachment);
+
+        return back()->with('success', "\"{$attachment->original_name}\" (v{$attachment->version}) is now the FINAL version.");
     }
 
     public function destroy(DocumentAttachment $attachment): RedirectResponse

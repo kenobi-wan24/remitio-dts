@@ -111,6 +111,27 @@
         </div>
     </div>
 
+    {{-- Phase 8: before releasing, show which file version is FINAL --}}
+    @php $finalFiles = $document->attachments->where('is_final', true); @endphp
+    <div x-show="action === 'released_to_client'" x-cloak>
+        @if ($finalFiles->isNotEmpty())
+            <div class="flex items-start gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+                <x-icon name="check-circle" class="h-5 w-5 shrink-0" />
+                <p>Final version on file:
+                    @foreach ($finalFiles as $file)
+                        <strong>{{ $file->original_name }} (v{{ $file->version }})</strong>@if (! $loop->last), @endif
+                    @endforeach
+                    — make sure this is the copy being released.
+                </p>
+            </div>
+        @else
+            <div class="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <x-icon name="exclamation-triangle" class="h-5 w-5 shrink-0" />
+                <p>No file is marked <strong>FINAL</strong> for this document. Double-check that the approved version is the one being released.</p>
+            </div>
+        @endif
+    </div>
+
     {{-- 3. What will happen --}}
     <div class="flex items-start gap-2 rounded-lg bg-slate-50 px-4 py-3 text-xs text-slate-600">
         <x-icon name="information-circle" class="h-4 w-4 shrink-0 text-slate-400" />

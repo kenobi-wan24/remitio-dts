@@ -17,6 +17,7 @@ class StoreClientRequest extends FormRequest
     {
         return [
             'client_type' => ['required', Rule::enum(ClientType::class)],
+            'is_retainer' => ['nullable', 'boolean'],
             'first_name' => ['nullable', 'required_if:client_type,individual', 'string', 'max:100'],
             'last_name' => ['nullable', 'required_if:client_type,individual', 'string', 'max:100'],
             'company_name' => ['nullable', 'required_if:client_type,company', 'string', 'max:150'],
@@ -43,6 +44,7 @@ class StoreClientRequest extends FormRequest
     public function clientData(): array
     {
         $data = $this->validated();
+        $data['is_retainer'] = $this->boolean('is_retainer'); // unchecked box sends nothing
 
         if ($data['client_type'] === ClientType::Company->value) {
             $data['first_name'] = null;

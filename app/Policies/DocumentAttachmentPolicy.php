@@ -7,9 +7,22 @@ use App\Models\User;
 
 class DocumentAttachmentPolicy
 {
-    /** Admins, or whoever uploaded the file. */
+    /**
+     * Admins can delete any file.
+     * Staff can delete only files THEY uploaded, and never a FINAL version.
+     */
     public function delete(User $user, DocumentAttachment $attachment): bool
     {
-        return $user->isAdmin() || (int) $attachment->uploaded_by === $user->id;
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        return ! $attachment->is_final && (int) $attachment->uploaded_by === $user->id;
+    }
+
+    /** Only the Lawyer/Owner (admin) approves which version is final. */
+    public function markFinal(User $user, DocumentAttachment $attachment): bool
+    {
+        return $user->isAdmin();
     }
 }

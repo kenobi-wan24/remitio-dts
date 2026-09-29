@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsActivity;
 use App\Enums\CaseStatus;
 use App\Enums\CaseType;
 use App\Models\Concerns\GeneratesReferenceCode;
@@ -19,7 +20,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class LegalCase extends Model
 {
     /** @use HasFactory<\Database\Factories\LegalCaseFactory> */
-    use GeneratesReferenceCode, HasFactory, SoftDeletes;
+    use GeneratesReferenceCode, HasFactory, LogsActivity, SoftDeletes;
 
     protected $fillable = [
         'docket_number',
@@ -98,5 +99,12 @@ class LegalCase extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    // ── Activity log (Phase 9) ──────────────────────────────
+
+    public function activityLabel(): string
+    {
+        return "case {$this->case_code}";
     }
 }

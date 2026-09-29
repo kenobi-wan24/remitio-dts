@@ -6,11 +6,15 @@ use App\Models\Document;
 use App\Models\DocumentAttachment;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 /**
  * Stores uploaded files on the PRIVATE "local" disk (storage/app/private),
  * so they can only be reached through the auth-protected download route.
+ *
+ * Phase 8: version control — a file can be uploaded as a new version of an
+ * existing one; exactly one version per file can be marked FINAL.
  */
 class AttachmentService
 {
@@ -44,28 +48,68 @@ class AttachmentService
 
     /**
      * @param  array<UploadedFile>  $files
+     * @param  DocumentAttachment|null  $versionOf  upload as the next version of this file
+     * @return array<DocumentAttachment>
      */
-    public function storeFiles(Document $document, array $files, User $user): int
+    public function storeFiles(Document $document, array $files, User $user, ?DocumentAttachment $versionOf = null, ?string $notes = null): array
     {
-        foreach ($files as $file) {
-            $path = $file->store("documents/{$document->id}", self::DISK);
+        $created = [];
 
-            $document->attachments()->create([
+        foreach ($files as $file) {
+            $attributes = [
                 'original_name' => $file->getClientOriginalName(),
-                'path' => $path,
+                'path' => $file->store("documents/{$document->id}", self::DISK),
                 'mime_type' => $file->getClientMimeType(),
                 'size' => $file->getSize(),
                 'uploaded_by' => $user->id,
-            ]);
+                'version_notes' => $notes,
+            ];
+
+            if ($versionOf) {
+                $group = $versionOf->version_group_id ?? $versionOf->id;
+                $attributes['version_group_id'] = $group;
+                $attributes['version'] = (int) DocumentAttachment::where('version_group_id', $group)->max('version') + 1;
+            }
+
+            $attachment = $document->attachments()->create($attributes);
+
+            // A brand-new file starts its own version group
+            if (! $attachment->version_group_id) {
+                $attachment->update(['version_group_id' => $attachment->id]);
+            }
+
+            $created[] = $attachment;
+
+            // Phase 9: activity log
+            ActivityLogger::log('uploaded', $document, $versionOf
+                ? "Uploaded v{$attachment->version} of \"{$attachment->original_name}\" to document {$document->tracking_code}"
+                : "Uploaded \"{$attachment->original_name}\" to document {$document->tracking_code}", [], $user);
         }
 
-        return count($files);
+        return $created;
+    }
+
+    /** Only one version of a file can be final. */
+    public function markFinal(DocumentAttachment $attachment): void
+    {
+        DB::transaction(function () use ($attachment) {
+            DocumentAttachment::where('version_group_id', $attachment->version_group_id)
+                ->update(['is_final' => false]);
+
+            $attachment->update(['is_final' => true]);
+        });
+
+        ActivityLogger::log('finalized', $attachment->document,
+            "Marked \"{$attachment->original_name}\" (v{$attachment->version}) as FINAL on document {$attachment->document?->tracking_code}");
     }
 
     public function delete(DocumentAttachment $attachment): void
     {
         Storage::disk(self::DISK)->delete($attachment->path);
         $attachment->delete();
+
+        ActivityLogger::log('file_deleted', $attachment->document,
+            "Deleted file \"{$attachment->original_name}\" (v{$attachment->version}) from document {$attachment->document?->tracking_code}");
     }
 
     /** PDFs and images can be opened in the browser instead of downloaded. */

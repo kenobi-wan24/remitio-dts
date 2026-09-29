@@ -15,6 +15,7 @@ class ClientFactory extends Factory
     {
         return [
             'client_type' => ClientType::Individual,
+            'is_retainer' => false,
             'first_name' => fake()->randomElement(DemoData::FIRST_NAMES),
             'last_name' => fake()->randomElement(DemoData::LAST_NAMES),
             'company_name' => null,
@@ -29,6 +30,7 @@ class ClientFactory extends Factory
     {
         return $this->state(fn () => [
             'client_type' => ClientType::Company,
+            'is_retainer' => fake()->boolean(70), // most companies/cooperatives are retainer accounts
             'first_name' => null,
             'last_name' => null,
             'company_name' => DemoData::companyName(),

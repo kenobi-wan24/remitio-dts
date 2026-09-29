@@ -9,6 +9,7 @@ use App\Models\DocumentMovement;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
+
 /**
  * The single place where a document moves.
  * Every movement = 1 new history row + the document's status/holder/location
@@ -80,6 +81,12 @@ class DocumentTracker
                 'current_holder_id' => $toHolder,
                 'physical_location' => $newLocation,
             ]);
+
+            // Phase 9: activity log
+            ActivityLogger::log('moved', $document, "{$action->label()}: document {$document->tracking_code}", [
+                'from_status' => $fromStatus->value,
+                'to_status' => $toStatus->value,
+            ], $actor);
 
             return $movement;
         });

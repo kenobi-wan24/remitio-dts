@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class DocumentType extends Model
 {
     /** @use HasFactory<\Database\Factories\DocumentTypeFactory> */
-    use HasFactory;
+    use HasFactory, LogsActivity;
 
     protected $fillable = [
         'name',
@@ -33,5 +34,12 @@ class DocumentType extends Model
     public function documents(): HasMany
     {
         return $this->hasMany(Document::class);
+    }
+
+    // ── Activity log (Phase 9) ──────────────────────────────
+
+    public function activityLabel(): string
+    {
+        return "document type \"{$this->name}\"";
     }
 }

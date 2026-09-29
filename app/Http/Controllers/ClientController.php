@@ -19,11 +19,13 @@ class ClientController extends Controller
         $showTrashed = $request->input('view') === 'trash' && $request->user()->isAdmin();
         $type = in_array($request->input('type'), ClientType::values(), true) ? $request->input('type') : null;
         $sort = $request->input('sort', 'name');
+        $engagement = in_array($request->input('engagement'), ['retainer', 'walk_in'], true) ? $request->input('engagement') : null;
 
         $clients = Client::query()
             ->when($showTrashed, fn ($query) => $query->onlyTrashed())
             ->search($request->input('q'))
             ->when($type, fn ($query) => $query->where('client_type', $type))
+            ->when($engagement, fn ($query) => $query->retainer($engagement === 'retainer'))
             ->withCount(['cases', 'documents'])
             ->when(
                 $sort === 'newest',
@@ -33,7 +35,7 @@ class ClientController extends Controller
             ->paginate(15)
             ->withQueryString();
 
-        return view('clients.index', compact('clients', 'showTrashed', 'type', 'sort'));
+        return view('clients.index', compact('clients', 'showTrashed', 'type', 'sort', 'engagement'));
     }
 
     public function create(): View

@@ -23,6 +23,33 @@
         }
     ">
 
+    {{-- Phase 8: possible duplicate warning --}}
+    @if (session('duplicateDocuments'))
+        <div class="rounded-xl border border-amber-300 bg-amber-50 p-5">
+            <div class="flex gap-3">
+                <x-icon name="exclamation-triangle" class="h-6 w-6 shrink-0 text-amber-600" />
+                <div class="flex-1">
+                    <h3 class="font-semibold text-amber-900">This document may already be recorded</h3>
+                    <p class="mt-1 text-sm text-amber-800">A document with the same title, type and client was received within 30 days of this one.</p>
+                    <ul class="mt-3 space-y-2">
+                        @foreach (session('duplicateDocuments') as $dup)
+                            <li class="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-white/70 px-3 py-2 text-sm">
+                                <a href="{{ route('documents.show', $dup['id']) }}" target="_blank" class="font-mono font-semibold text-slate-900 underline">{{ $dup['code'] }}</a>
+                                <span class="text-slate-700">{{ $dup['title'] }}</span>
+                                <span class="text-slate-500">received {{ $dup['received'] }} · {{ $dup['status'] }}</span>
+                            </li>
+                        @endforeach
+                    </ul>
+                    <label class="mt-4 flex items-center gap-2 text-sm font-medium text-amber-900">
+                        <input type="checkbox" name="confirm_duplicate" value="1" class="rounded border-amber-400 text-amber-600 focus:ring-amber-500">
+                        This is a different document. Record it anyway.
+                    </label>
+                    <p class="mt-1 text-xs text-amber-700">Note: re-select any files you want to attach — browsers don't keep them after a warning.</p>
+                </div>
+            </div>
+        </div>
+    @endif
+
     <x-card title="Document Information">
         <div class="grid gap-5 sm:grid-cols-2">
             <div class="sm:col-span-2">
@@ -64,6 +91,18 @@
                 <p x-show="clientId && cases.length === 0" x-cloak class="mt-1 text-xs text-slate-500">This client has no cases yet.</p>
                 @error('legal_case_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
             </div>
+        </div>
+    </x-card>
+
+    {{-- Phase 8: notarial register reference --}}
+    <x-card title="Notarial Register Details (for notarized documents)">
+        <p class="-mt-1 mb-4 text-xs text-slate-500">Optional. Fill in all four exactly as written on the document, e.g. <em>Doc. No. 45; Page No. 9; Book No. III; Series of {{ now()->year }}</em>.</p>
+        <div class="grid grid-cols-2 gap-5 sm:grid-cols-4">
+            <x-form.input name="notarial_doc_no" type="number" label="Doc. No." :value="$document->notarial_doc_no" min="1" />
+            <x-form.input name="notarial_page_no" type="number" label="Page No." :value="$document->notarial_page_no" min="1" />
+            <x-form.input name="notarial_book_no" label="Book No." :value="$document->notarial_book_no" maxlength="10" placeholder="e.g. III" />
+            <x-form.input name="notarial_series" type="number" label="Series (year)" :value="$document->notarial_series"
+                min="1990" max="{{ now()->year + 1 }}" placeholder="{{ now()->year }}" />
         </div>
     </x-card>
 

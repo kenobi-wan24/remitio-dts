@@ -3,6 +3,7 @@
 <x-app-layout :title="$client->display_name">
     <x-page-header :title="$client->display_name" :back="route('clients.index')">
         <x-slot name="actions">
+            <x-button variant="ghost" :href="route('reports.client-summary', ['client_id' => $client->id])" target="_blank" icon="document-text">Print Summary</x-button>
             <x-button variant="secondary" :href="route('clients.edit', $client)" icon="pencil-square">Edit</x-button>
             @can('delete', $client)
                 <x-confirm-delete :action="route('clients.destroy', $client)"
@@ -15,6 +16,7 @@
     <div class="-mt-3 mb-6 flex flex-wrap items-center gap-2 text-sm">
         <span class="font-mono text-slate-600">{{ $client->client_code }}</span>
         <x-status-badge :color="$client->client_type === ClientType::Company ? 'indigo' : 'gray'" :label="$client->client_type->label()" />
+        <x-status-badge :color="$client->is_retainer ? 'amber' : 'gray'" :label="$client->is_retainer ? 'Retainer Client' : 'Walk-in / One-time'" />
     </div>
 
     <div class="grid gap-6 lg:grid-cols-3">

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\LogsActivity;
 use App\Enums\ClientType;
 use App\Models\Concerns\GeneratesReferenceCode;
 use Illuminate\Database\Eloquent\Builder;
@@ -15,10 +16,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Client extends Model
 {
     /** @use HasFactory<\Database\Factories\ClientFactory> */
-    use GeneratesReferenceCode, HasFactory, SoftDeletes;
+    use GeneratesReferenceCode, HasFactory, LogsActivity, SoftDeletes;
 
     protected $fillable = [
         'client_type',
+        'is_retainer',
         'first_name',
         'last_name',
         'company_name',
@@ -33,6 +35,7 @@ class Client extends Model
     {
         return [
             'client_type' => ClientType::class,
+            'is_retainer' => 'boolean',
         ];
     }
 
@@ -78,6 +81,12 @@ class Client extends Model
         }
 
         return $query;
+    }
+
+    /** Phase 8: retainer accounts (corporate / cooperative with continuing engagement). */
+    public function scopeRetainer(Builder $query, bool $isRetainer = true): Builder
+    {
+        return $query->where('is_retainer', $isRetainer);
     }
 
     /**
@@ -134,5 +143,12 @@ class Client extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    // ── Activity log (Phase 9) ──────────────────────────────
+
+    public function activityLabel(): string
+    {
+        return "client {$this->client_code} ({$this->display_name})";
     }
 }

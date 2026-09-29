@@ -70,8 +70,26 @@
             </div>
         @endforeach
 
+        {{-- Phase 8: notarial register lookup --}}
+        <div class="sm:col-span-2 lg:col-span-12" x-data="{ open: @js(! empty($filters['notarial'])) }">
+            <button type="button" x-on:click="open = ! open" class="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-800">
+                <x-icon name="chevron-right" class="h-3 w-3 transition" x-bind:class="open && 'rotate-90'" />
+                Notarial register lookup (Doc. / Page / Book / Series)
+            </button>
+            <div x-show="open" x-cloak class="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                @foreach (['n_doc' => 'Doc. No.', 'n_page' => 'Page No.', 'n_book' => 'Book No.', 'n_series' => 'Series'] as $field => $label)
+                    <div>
+                        <label for="{{ $field }}" class="block text-xs font-medium text-slate-500">{{ $label }}</label>
+                        <input id="{{ $field }}" name="{{ $field }}" value="{{ request($field) }}"
+                            @if ($field !== 'n_book') type="number" min="1" @else type="text" @endif
+                            class="mt-1 block w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-slate-500 focus:ring-slate-500">
+                    </div>
+                @endforeach
+            </div>
+        </div>
+
         <div class="flex gap-2 sm:col-span-2 lg:col-span-12 lg:justify-end">
-            @if (request()->hasAny(['q', 'type', 'holder', 'due', 'sort', 'status']))
+            @if (request()->hasAny(['q', 'type', 'holder', 'due', 'sort', 'status', 'n_doc', 'n_page', 'n_book', 'n_series']))
                 <x-button variant="ghost" :href="route('documents.index', $showTrashed ? ['view' => 'trash'] : [])">Reset</x-button>
             @endif
             <x-button>Apply Filters</x-button>
@@ -79,7 +97,7 @@
     </form>
 
     @if ($documents->isEmpty())
-        @if (request()->hasAny(['q', 'type', 'holder', 'due', 'status']))
+        @if (request()->hasAny(['q', 'type', 'holder', 'due', 'status', 'n_doc', 'n_page', 'n_book', 'n_series']))
             <x-empty-state icon="magnifying-glass" title="No matching documents" message="Try another search term or clear the filters." />
         @elseif ($showTrashed)
             <x-empty-state icon="trash" title="Trash is empty" message="Deleted documents will appear here and can be restored." />
@@ -121,6 +139,9 @@
                                             · <x-icon name="folder-open" class="h-3 w-3" /> {{ $document->attachments_count }}
                                         @endif
                                     </p>
+                                    @if ($document->notarial_doc_no)
+                                        <p class="text-xs text-slate-400">Doc {{ $document->notarial_doc_no }} · Pg {{ $document->notarial_page_no }} · Bk {{ $document->notarial_book_no }} · {{ $document->notarial_series }}</p>
+                                    @endif
                                 </td>
                                 <td class="max-w-[14rem] px-5 py-3">
                                     <p class="truncate text-slate-700">{{ $document->client?->display_name ?? '—' }}</p>

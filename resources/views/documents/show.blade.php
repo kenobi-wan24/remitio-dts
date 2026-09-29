@@ -1,5 +1,3 @@
-@php use App\Services\AttachmentService; @endphp
-
 <x-app-layout :title="$document->tracking_code">
     <x-page-header :title="$document->title" :back="route('documents.index')">
         <x-slot name="actions">
@@ -74,6 +72,12 @@
                             <dd class="mt-0.5"><x-due-badge :document="$document" /></dd>
                         </div>
                     </div>
+                    @if ($document->notarial_reference)
+                        <div>
+                            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Notarial Register</dt>
+                            <dd class="mt-0.5 font-medium text-slate-900">{{ $document->notarial_reference }}</dd>
+                        </div>
+                    @endif
                     <div>
                         <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Recorded</dt>
                         <dd class="mt-0.5 text-slate-900">
@@ -105,56 +109,8 @@
                 <x-movement-timeline :movements="$document->movements" />
             </x-card>
 
-            {{-- Attachments --}}
-            <x-card title="Attachments ({{ $document->attachments->count() }})">
-                @if ($document->attachments->isNotEmpty())
-                    <ul class="-mx-5 -mt-5 mb-5 divide-y divide-slate-100 border-b border-slate-100">
-                        @foreach ($document->attachments as $attachment)
-                            @php
-                                $ext = strtolower(pathinfo($attachment->original_name, PATHINFO_EXTENSION));
-                                $iconColor = match (true) {
-                                    $ext === 'pdf' => 'bg-red-50 text-red-600',
-                                    in_array($ext, ['doc', 'docx']) => 'bg-blue-50 text-blue-600',
-                                    in_array($ext, ['xls', 'xlsx']) => 'bg-green-50 text-green-600',
-                                    default => 'bg-amber-50 text-amber-600',
-                                };
-                            @endphp
-                            <li class="flex items-center gap-3 px-5 py-3">
-                                <span class="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-lg {{ $iconColor }}">
-                                    <x-icon name="document-text" class="h-4 w-4" />
-                                    <span class="text-[9px] font-bold uppercase leading-none">{{ $ext }}</span>
-                                </span>
-                                <div class="min-w-0 flex-1">
-                                    <p class="truncate text-sm font-medium text-slate-900" title="{{ $attachment->original_name }}">{{ $attachment->original_name }}</p>
-                                    <p class="text-xs text-slate-500">
-                                        {{ $attachment->human_size }} · {{ $attachment->created_at->format('M d, Y') }}
-                                        @if ($attachment->uploader) · {{ $attachment->uploader->name }} @endif
-                                    </p>
-                                </div>
-                                <div class="flex shrink-0 items-center gap-1">
-                                    @if (AttachmentService::isPreviewable($attachment->mime_type))
-                                        <x-button variant="ghost" size="sm" icon="eye" target="_blank"
-                                            :href="route('attachments.download', [$attachment, 'inline' => 1])">View</x-button>
-                                    @endif
-                                    <x-button variant="ghost" size="sm" :href="route('attachments.download', $attachment)">Download</x-button>
-                                    @can('delete', $attachment)
-                                        <x-confirm-delete :action="route('attachments.destroy', $attachment)" label=""
-                                            title="Delete this file?" message="“{{ $attachment->original_name }}” will be permanently removed." />
-                                    @endcan
-                                </div>
-                            </li>
-                        @endforeach
-                    </ul>
-                @endif
-
-                <form method="POST" action="{{ route('documents.attachments.store', $document) }}" enctype="multipart/form-data" class="space-y-3">
-                    @csrf
-                    <x-file-input :label="$document->attachments->isEmpty() ? 'Upload scanned copies or soft files' : 'Add more files'" />
-                    <div class="flex justify-end">
-                        <x-button size="sm" icon="plus">Upload</x-button>
-                    </div>
-                </form>
-            </x-card>
+            {{-- Phase 8: files with version control --}}
+            @include('documents._attachments')
 
         </div>
     </div>

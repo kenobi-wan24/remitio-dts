@@ -50,6 +50,17 @@
             @endforeach
         </div>
         @error('client_type') <p class="mt-2 text-xs text-red-600">{{ $message }}</p> @enderror
+
+        {{-- Phase 8: retainer vs walk-in --}}
+        <label class="mt-4 flex items-start gap-3 rounded-lg border border-slate-200 p-4">
+            <input type="hidden" name="is_retainer" value="0">
+            <input type="checkbox" name="is_retainer" value="1" @checked(old('is_retainer', $client->is_retainer))
+                class="mt-0.5 rounded border-slate-300 text-slate-800 focus:ring-slate-500">
+            <span>
+                <span class="block text-sm font-medium text-slate-800">Retainer client</span>
+                <span class="block text-xs text-slate-500">Corporate / cooperative account with a continuing engagement. Leave unchecked for walk-in or one-time clients.</span>
+            </span>
+        </label>
     </x-card>
 
     {{-- Details --}}

@@ -38,6 +38,15 @@
             </select>
         </div>
 
+        <div class="sm:w-44">
+            <label for="engagement" class="block text-xs font-medium text-slate-500">Engagement</label>
+            <select id="engagement" name="engagement" class="mt-1 block w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-slate-500 focus:ring-slate-500">
+                <option value="">All clients</option>
+                <option value="retainer" @selected($engagement === 'retainer')>Retainer</option>
+                <option value="walk_in" @selected($engagement === 'walk_in')>Walk-in / one-time</option>
+            </select>
+        </div>
+
         <div class="sm:w-40">
             <label for="sort" class="block text-xs font-medium text-slate-500">Sort by</label>
             <select id="sort" name="sort" class="mt-1 block w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-slate-500 focus:ring-slate-500">
@@ -48,14 +57,14 @@
 
         <div class="flex gap-2">
             <x-button>Filter</x-button>
-            @if (request()->hasAny(['q', 'type', 'sort']))
+            @if (request()->hasAny(['q', 'type', 'sort', 'engagement']))
                 <x-button variant="ghost" :href="route('clients.index', $showTrashed ? ['view' => 'trash'] : [])">Reset</x-button>
             @endif
         </div>
     </form>
 
     @if ($clients->isEmpty())
-        @if (request()->hasAny(['q', 'type']))
+        @if (request()->hasAny(['q', 'type', 'engagement']))
             <x-empty-state icon="magnifying-glass" title="No matching clients" message="Try a different name, code, or contact number." />
         @elseif ($showTrashed)
             <x-empty-state icon="trash" title="Trash is empty" message="Deleted clients will appear here and can be restored." />
@@ -93,7 +102,10 @@
                                             @else
                                                 <a href="{{ route('clients.show', $client) }}" class="font-medium text-slate-900 hover:underline">{{ $client->display_name }}</a>
                                             @endif
-                                            <p class="truncate text-xs text-slate-500">{{ $client->address ?? '—' }}</p>
+                                            <p class="truncate text-xs text-slate-500">
+                                                @if ($client->is_retainer) <span class="font-semibold text-amber-700">Retainer</span> · @endif
+                                                {{ $client->address ?? '—' }}
+                                            </p>
                                         </div>
                                     </div>
                                 </td>
