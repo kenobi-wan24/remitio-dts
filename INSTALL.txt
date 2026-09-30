@@ -1,22 +1,33 @@
-HOTFIX — FILE UPLOADS (intl crash + .docx/.xlsx rejected)
-=========================================================
+PHASE 11A — BACKUP & RESTORE · AUTOMATED TESTS · DEPLOYMENT FILES
+================================================================
+!! Install AFTER the panel presentation. Your demo version is tagged v0.9-panel. !!
 
-FILES (both REPLACE existing files)
- app/Models/DocumentAttachment.php   file sizes ("1.2 MB") no longer need the PHP "intl" extension
- app/Services/AttachmentService.php  .docx/.xlsx/.doc/.xls are accepted even when Windows reports them as ZIP/CDFV2
+HOW TO COPY (merge): extract to Downloads\phase11, copy app, resources, routes, tests
+and the 3 root files (README.md, start-dts.bat, backup-dts.bat) into remitio-dts\
+-> "Replace the files in the destination".
 
-HOW TO COPY: extract to Downloads\hotfix-uploads, then copy the "app" folder into remitio-dts\
-             and choose "Replace the files in the destination".
+FILES
+ NEW       app/Services/BackupService.php
+ NEW       app/Http/Controllers/Admin/BackupController.php
+ NEW       app/Console/Commands/BackupCommand.php         (php artisan dts:backup)
+ NEW       app/Console/Commands/CreateAdminCommand.php    (php artisan dts:create-admin)
+ REPLACES  app/Models/ActivityLog.php                     (backup action labels)
+ REPLACES  routes/web.php                                 (5 backup routes)
+ REPLACES  resources/views/layouts/sidebar.blade.php      ("Backup & Restore" link)
+ NEW       resources/views/admin/backups/index.blade.php
+ NEW       tests/Feature/AccessControlTest.php            (7 tests)
+ NEW       tests/Feature/DocumentTrackingTest.php         (6 tests)
+ NEW       tests/Feature/FileVersioningTest.php           (5 tests)
+ NEW       tests/Feature/DuplicatePreventionTest.php      (3 tests)
+ NEW       tests/Feature/BackupRestoreTest.php            (3 tests)
+ REPLACES  README.md
+ NEW       start-dts.bat, backup-dts.bat
+
+NO MIGRATIONS in this phase.
 
 AFTER COPYING
- php artisan optimize:clear
-
-TEST
- Open any document -> upload one of each: .pdf, .png, .jpg, .docx, .xlsx
- -> page loads, sizes show like "245.3 KB", PDF/PNG "View" opens in a new tab.
- Try a .zip or .exe -> "Allowed file types: PDF, Word, Excel, JPG, PNG."
-
-OPTIONAL (recommended on every PC, incl. Hero's and the firm's)
- Enable intl anyway: open C:\xampp\php\php.ini, find ";extension=intl",
- remove the ";" -> save -> restart "php artisan serve".
- Check with:  php -m | findstr /i "intl fileinfo"   (both should be listed)
+ 1. php.ini: make sure "extension=zip" has no ";" in front (needed for backups). Restart the server.
+ 2. php artisan optimize:clear
+ 3. php artisan route:list --path=admin/backups     (5 routes)
+ 4. php artisan list dts                            (dts:backup, dts:create-admin)
+ 5. Tests: see README section 6, then:  php artisan test

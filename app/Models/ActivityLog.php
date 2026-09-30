@@ -22,6 +22,9 @@ class ActivityLog extends Model
         'password_reset' => ['Password reset', 'amber'],
         'activated' => ['Activated', 'green'],
         'deactivated' => ['Deactivated', 'amber'],
+        'backup_created' => ['Backup created', 'indigo'],
+        'backup_deleted' => ['Backup deleted', 'red'],
+        'backup_restored' => ['Backup restored', 'amber'],
     ];
 
     protected $fillable = [

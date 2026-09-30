@@ -78,6 +78,15 @@ Route::middleware('auth')->group(function () {
             ->name('document-types.toggle');
 
         Route::get('activity-logs', Admin\ActivityLogController::class)->name('activity-logs.index');
+
+        // ── Phase 11: Backup & Restore ──
+        Route::get('backups', [Admin\BackupController::class, 'index'])->name('backups.index');
+        Route::post('backups', [Admin\BackupController::class, 'store'])->name('backups.store');
+        Route::post('backups/restore', [Admin\BackupController::class, 'restore'])->name('backups.restore');
+        Route::get('backups/{file}/download', [Admin\BackupController::class, 'download'])
+            ->where('file', '[A-Za-z0-9._-]+')->name('backups.download');
+        Route::delete('backups/{file}', [Admin\BackupController::class, 'destroy'])
+            ->where('file', '[A-Za-z0-9._-]+')->name('backups.destroy');
     });
 });
 

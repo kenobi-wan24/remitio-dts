@@ -1,59 +1,147 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Remitio DTS — Document Tracking System
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Web-based document tracking system for **Remitio & Remitio Law Offices**, Davao City.
+Records clients, cases, and documents; tracks every hand-off of a document; keeps file versions;
+and provides search, reports, an activity log, and backup & restore.
 
-## About Laravel
+**Stack:** Laravel 12 · PHP 8.2+ · MySQL (XAMPP) · Blade · Tailwind CSS · Alpine.js
+**Team:** Kenneth Manos (Programmer) · Hero Camillus Obillo (Project Manager / Systems Analyst / QA)
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 1. Requirements
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+| | Minimum |
+|---|---|
+| OS | Windows 10/11 (64-bit) |
+| CPU / RAM | Intel Core i3 2.0 GHz / 4 GB (8 GB recommended) |
+| Disk | 20 GB free (SSD recommended) |
+| Software | XAMPP (PHP 8.2+, MySQL), Composer, Node.js LTS, Git |
 
-## Learning Laravel
+In `C:\xampp\php\php.ini`, make sure these lines have **no** `;` in front:
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+```ini
+extension=fileinfo
+extension=zip
+extension=intl
+upload_max_filesize = 12M
+post_max_size = 64M
+```
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+Check with: `php -m | findstr /i "fileinfo zip intl"`
 
-## Laravel Sponsors
+## 2. Installation (developer or first-time setup)
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+```bash
+git clone https://github.com/<account>/remitio-dts.git
+cd remitio-dts
+composer install
+npm install
+npm run build
+copy .env.example .env
+php artisan key:generate
+```
 
-### Premium Partners
+Create a MySQL database named `remitio_dts` (phpMyAdmin → New → `utf8mb4_unicode_ci`), then set in `.env`:
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+```env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=remitio_dts
+DB_USERNAME=root
+DB_PASSWORD=
+```
 
-## Contributing
+### Option A — Demo data (development, presentations)
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```bash
+php artisan migrate --seed
+```
 
-## Code of Conduct
+Demo accounts (password: `password`): `admin@remitio.test`, `attorney@remitio.test` (Administrator) ·
+`secretary@remitio.test`, `clerk@remitio.test` (Staff). **Never use these at the firm.**
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### Option B — Real use at the firm (no demo data)
 
-## Security Vulnerabilities
+```bash
+php artisan migrate --force
+php artisan db:seed --class=DocumentTypeSeeder
+php artisan dts:create-admin
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+Then sign in as that administrator and add the staff accounts under **Administration → Users**.
 
-## License
+## 3. Running the system
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Double-click **`start-dts.bat`** (keep its window open). Or run:
+
+```bash
+php artisan serve --host=0.0.0.0 --port=8000
+```
+
+- This computer: <http://localhost:8000>
+- Other office computers: `http://<this-PC's-IP>:8000` (find the IP with `ipconfig`).
+  If they can't connect, allow **PHP** through Windows Defender Firewall (Private networks).
+- MySQL must be running. In the XAMPP Control Panel, tick **Svc** next to MySQL to start it with Windows.
+
+### Production settings (at the firm)
+
+In `.env`:
+
+```env
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=http://<this-PC's-IP>:8000
+```
+
+Then: `php artisan optimize`. (After any code update: `php artisan optimize:clear` then `php artisan optimize`.)
+
+## 4. Backup & restore
+
+- **Manual:** Administration → **Backup & Restore** → *Back Up Now* → *Download*. Copy the file to a USB drive or cloud storage.
+- **Automatic:** Windows **Task Scheduler** → *Create Basic Task* → Daily → *Start a program* → `backup-dts.bat`.
+  Keeps the 10 most recent automatic backups. Log: `storage\logs\backup.log`.
+- **Restore:** Backup & Restore → *Restore a Backup* → choose or upload the `.zip` → type `RESTORE` → your password.
+  A safety copy of the current data is made first; everyone is signed out afterwards.
+- A backup contains all records **and** uploaded files. Command line: `php artisan dts:backup`.
+
+## 5. Updating to a new version
+
+```bash
+php artisan dts:backup
+git pull
+composer install      # only if composer.json/lock changed
+npm install           # only if package.json changed
+php artisan migrate
+npm run build
+php artisan optimize:clear
+```
+
+## 6. Automated tests
+
+Create an empty MySQL database `remitio_dts_test`, then in `phpunit.xml` set:
+
+```xml
+<env name="DB_CONNECTION" value="mysql"/>
+<env name="DB_DATABASE" value="remitio_dts_test"/>
+```
+
+(Or keep the SQLite in-memory defaults if `pdo_sqlite` is enabled in php.ini.) Run:
+
+```bash
+php artisan test
+```
+
+Covers: access control and roles, document tracking, file versioning, duplicate prevention, backup & restore.
+
+## 7. Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| Page has no styling | `npm run build` |
+| "Unknown column" / crash after an update | `php artisan migrate` (check `php artisan migrate:status`) |
+| "intl extension is required" | enable `extension=intl` in php.ini |
+| Backups unavailable | enable `extension=zip` in php.ini |
+| Uploads fail / "too large" | raise `upload_max_filesize` and `post_max_size` in php.ini |
+| Other PCs can't connect | start with `start-dts.bat` (uses `--host=0.0.0.0`) and allow PHP in the firewall |

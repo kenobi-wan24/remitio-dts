@@ -33,6 +33,7 @@
                     <x-sidebar-link :href="route('admin.users.index')" :active="request()->routeIs('admin.users.*')" icon="user-circle">Users</x-sidebar-link>
                     <x-sidebar-link :href="route('admin.document-types.index')" :active="request()->routeIs('admin.document-types.*')" icon="tag">Document Types</x-sidebar-link>
                     <x-sidebar-link :href="route('admin.activity-logs.index')" :active="request()->routeIs('admin.activity-logs.*')" icon="clock">Activity Log</x-sidebar-link>
+                    <x-sidebar-link :href="route('admin.backups.index')" :active="request()->routeIs('admin.backups.*')" icon="archive-box">Backup &amp; Restore</x-sidebar-link>
                 </div>
             </div>
         @endcan
