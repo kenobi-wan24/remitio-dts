@@ -1,28 +1,22 @@
-PHASE 10 — REPORTS
-==================
+HOTFIX — FILE UPLOADS (intl crash + .docx/.xlsx rejected)
+=========================================================
 
-HOW TO COPY (merge, never replace folders):
- 1. Extract this zip to Downloads\phase10 (NOT into the project).
- 2. Open Downloads\phase10, select the app, resources, routes folders -> Copy.
- 3. Open remitio-dts\ -> Paste.
- 4. Windows asks about duplicates -> "Replace the files in the destination".
+FILES (both REPLACE existing files)
+ app/Models/DocumentAttachment.php   file sizes ("1.2 MB") no longer need the PHP "intl" extension
+ app/Services/AttachmentService.php  .docx/.xlsx/.doc/.xls are accepted even when Windows reports them as ZIP/CDFV2
 
-FILES
- NEW       app/Http/Controllers/ReportController.php
- REPLACES  routes/web.php                                  (reports placeholder -> 5 report routes)
- NEW       resources/views/components/print-layout.blade.php  (letterhead + print toolbar)
- NEW       resources/views/reports/index.blade.php
- NEW       resources/views/reports/documents.blade.php
- NEW       resources/views/reports/movements.blade.php
- NEW       resources/views/reports/notarial.blade.php
- NEW       resources/views/reports/client-summary.blade.php
- NEW       resources/views/reports/_summary-documents.blade.php
- REPLACES  resources/views/clients/show.blade.php          ("Print Summary" button)
-
-OPTIONAL CLEAN-UP
- resources/views/coming-soon.blade.php is no longer used by any route — you can delete it.
+HOW TO COPY: extract to Downloads\hotfix-uploads, then copy the "app" folder into remitio-dts\
+             and choose "Replace the files in the destination".
 
 AFTER COPYING
  php artisan optimize:clear
- php artisan route:list --name=reports     (should list 5 routes)
- npm run dev
+
+TEST
+ Open any document -> upload one of each: .pdf, .png, .jpg, .docx, .xlsx
+ -> page loads, sizes show like "245.3 KB", PDF/PNG "View" opens in a new tab.
+ Try a .zip or .exe -> "Allowed file types: PDF, Word, Excel, JPG, PNG."
+
+OPTIONAL (recommended on every PC, incl. Hero's and the firm's)
+ Enable intl anyway: open C:\xampp\php\php.ini, find ";extension=intl",
+ remove the ";" -> save -> restart "php artisan serve".
+ Check with:  php -m | findstr /i "intl fileinfo"   (both should be listed)

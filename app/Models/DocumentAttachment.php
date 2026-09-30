@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Number;
 
 class DocumentAttachment extends Model
 {
@@ -32,10 +31,26 @@ class DocumentAttachment extends Model
         ];
     }
 
-    /** $attachment->human_size → "1.2 MB" */
+    /**
+     * $attachment->human_size → "1.2 MB"
+     * Plain PHP on purpose: Laravel's Number::fileSize() needs the "intl"
+     * extension, which XAMPP leaves disabled by default.
+     */
     protected function humanSize(): Attribute
     {
-        return Attribute::get(fn () => Number::fileSize($this->size, precision: 1));
+        return Attribute::get(function () {
+            $bytes = (int) $this->size;
+            $units = ['B', 'KB', 'MB', 'GB'];
+            $i = 0;
+            $value = $bytes;
+
+            while ($value >= 1024 && $i < count($units) - 1) {
+                $value /= 1024;
+                $i++;
+            }
+
+            return ($i === 0 ? $value : number_format($value, 1)).' '.$units[$i];
+        });
     }
 
     public function document(): BelongsTo

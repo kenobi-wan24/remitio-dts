@@ -20,7 +20,23 @@ class AttachmentService
 {
     public const DISK = 'local';
 
-    public const ALLOWED_MIMES = 'pdf,doc,docx,xls,xlsx,jpg,jpeg,png';
+    public const ALLOWED_EXTENSIONS = 'pdf,doc,docx,xls,xlsx,jpg,jpeg,png';
+
+    /**
+     * Content types we accept. Windows/XAMPP's file detection often reports
+     * .docx/.xlsx as a ZIP (they ARE zip packages inside) and .doc/.xls as
+     * "CDFV2"/"vnd.ms-office", so those are listed too. The extension rule
+     * still limits uploads to the 8 allowed extensions.
+     */
+    public const ALLOWED_MIMETYPES = [
+        'application/pdf',
+        'image/jpeg', 'image/png',
+        'application/msword', 'application/vnd.ms-office', 'application/CDFV2', 'application/x-ole-storage',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/zip', 'application/x-zip-compressed', 'application/octet-stream',
+    ];
 
     public const MAX_KB = 10240; // 10 MB per file
 
@@ -31,7 +47,12 @@ class AttachmentService
     {
         return [
             'attachments' => [$required ? 'required' : 'nullable', 'array', 'max:'.self::MAX_FILES],
-            'attachments.*' => ['file', 'mimes:'.self::ALLOWED_MIMES, 'max:'.self::MAX_KB],
+            'attachments.*' => [
+                'file',
+                'extensions:'.self::ALLOWED_EXTENSIONS,
+                'mimetypes:'.implode(',', self::ALLOWED_MIMETYPES),
+                'max:'.self::MAX_KB,
+            ],
         ];
     }
 
@@ -40,7 +61,8 @@ class AttachmentService
         return [
             'attachments.required' => 'Choose at least one file to upload.',
             'attachments.max' => 'You can upload up to '.self::MAX_FILES.' files at a time.',
-            'attachments.*.mimes' => 'Allowed file types: PDF, Word, Excel, JPG, PNG.',
+            'attachments.*.extensions' => 'Allowed file types: PDF, Word, Excel, JPG, PNG.',
+            'attachments.*.mimetypes' => 'This file does not look like a real PDF, Word, Excel, JPG or PNG file.',
             'attachments.*.max' => 'Each file must be 10 MB or smaller.',
             'attachments.*.uploaded' => 'A file failed to upload. It may be larger than the server allows.',
         ];
