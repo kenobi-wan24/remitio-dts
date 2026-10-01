@@ -56,6 +56,17 @@ class AttachmentService
         ];
     }
 
+    /** Rules for ONE file in a field named "file" (Workflow v2 tracking form). */
+    public static function singleFileRules(): array
+    {
+        return [
+            'file',
+            'extensions:'.self::ALLOWED_EXTENSIONS,
+            'mimetypes:'.implode(',', self::ALLOWED_MIMETYPES),
+            'max:'.self::MAX_KB,
+        ];
+    }
+
     public static function messages(): array
     {
         return [

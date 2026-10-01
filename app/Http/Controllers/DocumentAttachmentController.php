@@ -64,16 +64,6 @@ class DocumentAttachmentController extends Controller
         return $disk->download($attachment->path, $attachment->original_name);
     }
 
-    /** Phase 8: Lawyer/Owner marks the approved version. */
-    public function markFinal(DocumentAttachment $attachment): RedirectResponse
-    {
-        Gate::authorize('markFinal', $attachment);
-
-        $this->attachments->markFinal($attachment);
-
-        return back()->with('success', "\"{$attachment->original_name}\" (v{$attachment->version}) is now the FINAL version.");
-    }
-
     public function destroy(DocumentAttachment $attachment): RedirectResponse
     {
         Gate::authorize('delete', $attachment);

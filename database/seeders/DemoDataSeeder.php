@@ -10,23 +10,39 @@ use App\Models\Document;
 use App\Models\DocumentMovement;
 use App\Models\DocumentType;
 use App\Models\LegalCase;
+use App\Models\NotarialEntry;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 /**
- * Realistic-looking demo data: clients → cases → documents → movement history.
+ * Demo data following Workflow v2:
+ * Received → For Drafting → For Review ⇄ Revision Required → Approved → For Signature
+ * → Signed → Finalized → Released → Archived (+ Notarial Register entries)
  */
 class DemoDataSeeder extends Seeder
 {
-    private Collection $users;
+    private Collection $staff;
+
+    private Collection $lawyers;
+
+    /** Notarizable document types get a register entry once approved. */
+    private const NOTARIZABLE = ['Affidavit', 'Deed', 'Power of Attorney', 'Contract / Agreement', 'Certificate'];
+
+    private array $register = []; // series => last doc no.
 
     public function run(): void
     {
         // NOTE: factory state() closures are re-bound to the factory, so `$this`
         // inside them is the FACTORY, not this seeder. Use local variables there.
-        $users = $this->users = User::active()->get();
+        $users = User::active()->get();
         $attorneys = $users->where('role', UserRole::Admin)->values();
+        $this->lawyers = $attorneys;
+        $this->staff = $users->where('role', UserRole::Staff)->values();
+        if ($this->staff->isEmpty()) {
+            $this->staff = $users;
+        }
 
         $randomUser = fn () => ['created_by' => $users->random()->id];
 
@@ -58,118 +74,110 @@ class DemoDataSeeder extends Seeder
             ->state(fn () => ['client_id' => $clients->random()->id, 'created_by' => $users->random()->id])
             ->create()
             ->each(fn (Document $doc) => $this->simulateHistory($doc));
-
-        // 4) Phase 8: notarial register numbers for notarized document types
-        $this->assignNotarialNumbers();
     }
 
     /**
-     * Gives notarizable documents a register reference, numbered in order
-     * per year: Doc. No. 1, 2, 3... · 4 docs per page · 100 docs per book.
-     */
-    private function assignNotarialNumbers(): void
-    {
-        $types = DocumentType::whereIn('name', [
-            'Affidavit', 'Deed', 'Power of Attorney', 'Contract / Agreement', 'Certificate',
-        ])->pluck('id');
-
-        $books = ['I', 'II', 'III', 'IV', 'V'];
-        $counter = [];
-
-        Document::whereIn('document_type_id', $types)
-            ->orderBy('date_received')
-            ->orderBy('id')
-            ->get()
-            ->each(function (Document $doc) use (&$counter, $books) {
-                $series = $doc->date_received->year;
-                $n = $counter[$series] = ($counter[$series] ?? 0) + 1;
-
-                $doc->update([
-                    'notarial_series' => $series,
-                    'notarial_book_no' => $books[min(intdiv($n - 1, 100), 4)],
-                    'notarial_page_no' => intdiv($n - 1, 4) + 1,
-                    'notarial_doc_no' => $n,
-                ]);
-            });
-    }
-
-    /**
-     * Walks a document forward through the workflow from "received" to a
-     * random stopping point, writing one movement per step.
+     * Walks a document through the Workflow v2 steps to a random stopping point,
+     * writing one movement per step (sometimes with a revision loop).
      */
     private function simulateHistory(Document $document): void
     {
-        $flow = DocumentStatus::cases();                       // in workflow order
-        $stopAt = fake()->randomElement([0, 1, 1, 2, 2, 3, 3, 4, 5]);
+        $secretary = $this->staff->random();
+        $lawyer = $document->legalCase?->handling_attorney_id
+            ? $this->lawyers->firstWhere('id', $document->legalCase->handling_attorney_id) ?? $this->lawyers->random()
+            : $this->lawyers->random();
 
-        $at = $document->date_received->copy()->setTime(fake()->numberBetween(8, 11), fake()->numberBetween(0, 59));
-        $holder = $this->users->random();
+        $at = Carbon::parse($document->date_received)->setTime(fake()->numberBetween(8, 11), fake()->numberBetween(0, 59));
+        $status = DocumentStatus::Received;
+        $holder = $secretary;
 
-        DocumentMovement::create([
-            'document_id' => $document->id,
-            'action' => MovementAction::Received,
-            'to_user_id' => $holder->id,
-            'to_status' => DocumentStatus::Received,
-            'location' => $document->physical_location,
-            'remarks' => 'Document received and logged at the front desk.',
-            'acted_by' => $holder->id,
-            'acted_at' => $at,
-        ]);
+        $this->move($document, MovementAction::Received, null, $secretary, null, $status, 'Client request received and logged.', $secretary, $at);
 
-        $currentStatus = DocumentStatus::Received;
+        // The steps in order: [action, new status, new holder, acted by, remarks]
+        $steps = [
+            [MovementAction::DraftingStarted, DocumentStatus::ForDrafting, $secretary, $secretary, 'Lawyer\'s instructions noted; drafting started.'],
+            [MovementAction::SubmittedForReview, DocumentStatus::ForReview, $lawyer, $secretary, 'Draft ready for review.'],
+        ];
+        if (fake()->boolean(40)) { // revision loop
+            $steps[] = [MovementAction::RevisionRequired, DocumentStatus::RevisionRequired, $secretary, $lawyer, 'Please correct the client\'s middle name and revise paragraph 3.'];
+            $steps[] = [MovementAction::Resubmitted, DocumentStatus::ForReview, $lawyer, $secretary, 'Revised per your comments.'];
+        }
+        $steps = [...$steps,
+            [MovementAction::Approved, DocumentStatus::Approved, $secretary, $lawyer, 'Content approved.'],
+            [MovementAction::SentForSignature, DocumentStatus::ForSignature, $lawyer, $secretary, 'Printed and given for signature.'],
+            [MovementAction::Signed, DocumentStatus::Signed, $secretary, $lawyer, "Signed by {$lawyer->name}."],
+            [MovementAction::Finalized, DocumentStatus::Finalized, $secretary, $secretary, 'Sealed; client copy prepared.'],
+            [MovementAction::ReleasedToClient, DocumentStatus::Released, null, $secretary, 'Original released.'],
+            [MovementAction::Archived, DocumentStatus::Archived, null, $secretary, 'Matter completed.'],
+        ];
 
-        for ($i = 1; $i <= $stopAt; $i++) {
-            $nextStatus = $flow[$i];
-            $at = $at->copy()->addDays(fake()->numberBetween(1, 6))->setTime(fake()->numberBetween(8, 16), fake()->numberBetween(0, 59));
+        $stopAt = fake()->numberBetween(0, count($steps));
 
+        foreach (array_slice($steps, 0, $stopAt) as [$action, $newStatus, $newHolder, $actor, $remarks]) {
+            $at = $at->copy()->addDays(fake()->numberBetween(0, 3))->addHours(fake()->numberBetween(1, 5));
             if ($at->isFuture()) {
                 break;
             }
 
-            $nextHolder = $nextStatus->isFinal() ? null : $this->users->random();
+            $this->move($document, $action, $holder, $newHolder, $status, $newStatus, $remarks, $actor, $at,
+                $action === MovementAction::ReleasedToClient ? $document->client?->display_name : null,
+                $action === MovementAction::Archived ? 'Archive Room - Box '.fake()->numberBetween(1, 20) : null);
 
-            $action = match ($nextStatus) {
-                DocumentStatus::Filed => MovementAction::FiledInCourt,
-                DocumentStatus::Released => MovementAction::ReleasedToClient,
-                DocumentStatus::Archived => MovementAction::Archived,
-                default => $nextHolder?->id !== $holder?->id ? MovementAction::Forwarded : MovementAction::StatusChanged,
-            };
+            // Notarized documents get a register entry right after approval
+            if ($action === MovementAction::Approved && in_array($document->documentType?->name, self::NOTARIZABLE, true)) {
+                $this->addNotarialEntry($document, $actor, $at->copy()->addMinutes(30));
+            }
 
-            DocumentMovement::create([
-                'document_id' => $document->id,
-                'action' => $action,
-                'from_user_id' => $holder?->id,
-                'to_user_id' => $nextHolder?->id,
-                'from_status' => $currentStatus,
-                'to_status' => $nextStatus,
-                'location' => $nextStatus === DocumentStatus::Archived ? 'Archive Room' : null,
-                'remarks' => $this->remarkFor($nextStatus),
-                'acted_by' => ($holder ?? $this->users->random())->id,
-                'acted_at' => $at,
-            ]);
-
-            $holder = $nextHolder;
-            $currentStatus = $nextStatus;
+            $holder = $newHolder;
+            $status = $newStatus;
         }
 
         $document->update([
-            'status' => $currentStatus,
+            'status' => $status,
             'current_holder_id' => $holder?->id,
-            'physical_location' => $currentStatus === DocumentStatus::Archived
-                ? 'Archive Room - Box '.fake()->numberBetween(1, 20)
-                : ($currentStatus === DocumentStatus::Released ? null : $document->physical_location),
+            'physical_location' => match ($status) {
+                DocumentStatus::Released => null,
+                DocumentStatus::Archived => 'Archive Room - Box '.fake()->numberBetween(1, 20),
+                default => $document->physical_location,
+            },
         ]);
     }
 
-    private function remarkFor(DocumentStatus $status): string
+    private function move(Document $document, MovementAction $action, ?User $from, ?User $to, ?DocumentStatus $fromStatus,
+        DocumentStatus $toStatus, string $remarks, User $actor, Carbon $at, ?string $receivedBy = null, ?string $location = null): void
     {
-        return match ($status) {
-            DocumentStatus::InReview => 'Forwarded to attorney for review.',
-            DocumentStatus::ForSignature => 'Reviewed. Prepared for signature.',
-            DocumentStatus::Filed => 'Filed and received-stamped.',
-            DocumentStatus::Released => 'Original released to client. Photocopy retained.',
-            DocumentStatus::Archived => 'Matter completed. Moved to archive.',
-            default => '',
-        };
+        DocumentMovement::create([
+            'document_id' => $document->id,
+            'action' => $action,
+            'from_user_id' => $from?->id,
+            'to_user_id' => $to?->id,
+            'from_status' => $fromStatus,
+            'to_status' => $toStatus,
+            'location' => $location ?? ($action === MovementAction::Received ? $document->physical_location : null),
+            'remarks' => $remarks,
+            'received_by' => $receivedBy,
+            'acted_by' => $actor->id,
+            'acted_at' => $at,
+        ]);
+    }
+
+    /** Numbered in order per year: Doc. No. 1, 2, 3… · 4 docs per page · 100 docs per book. */
+    private function addNotarialEntry(Document $document, User $by, Carbon $at): void
+    {
+        $series = $at->year;
+        $n = $this->register[$series] = ($this->register[$series] ?? 0) + 1;
+        $books = ['I', 'II', 'III', 'IV', 'V'];
+
+        $entry = new NotarialEntry([
+            'document_id' => $document->id,
+            'doc_no' => $n,
+            'page_no' => intdiv($n - 1, 4) + 1,
+            'book_no' => $books[min(intdiv($n - 1, 100), 4)],
+            'series' => $series,
+            'recorded_by' => $by->id,
+        ]);
+        $entry->created_at = $at;
+        $entry->updated_at = $at;
+        $entry->save();
     }
 }

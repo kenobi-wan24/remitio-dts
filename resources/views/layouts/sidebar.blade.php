@@ -16,6 +16,7 @@
             <x-sidebar-link :href="route('documents.index')" :active="request()->routeIs('documents.*')" icon="document-text">Documents</x-sidebar-link>
             <x-sidebar-link :href="route('cases.index')" :active="request()->routeIs('cases.*')" icon="briefcase">Cases</x-sidebar-link>
             <x-sidebar-link :href="route('clients.index')" :active="request()->routeIs('clients.*')" icon="users">Clients</x-sidebar-link>
+            <x-sidebar-link :href="route('notarial.index')" :active="request()->routeIs('notarial.*')" icon="building-library">Notarial Register</x-sidebar-link>
         </div>
 
         <div>

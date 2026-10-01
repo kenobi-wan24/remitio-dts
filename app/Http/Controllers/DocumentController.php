@@ -36,9 +36,8 @@ class DocumentController extends Controller
             'status' => in_array($request->input('status'), DocumentStatus::values(), true) ? $request->input('status') : null,
             'type' => is_numeric($request->input('type')) ? (int) $request->input('type') : null,
             'holder' => $request->input('holder'),
-            'due' => in_array($request->input('due'), ['overdue', 'soon', 'week'], true) ? $request->input('due') : null,
-            'sort' => in_array($request->input('sort'), ['newest', 'oldest', 'due'], true) ? $request->input('sort') : 'newest',
-            // Phase 8: notarial register lookup
+            'sort' => in_array($request->input('sort'), ['newest', 'oldest'], true) ? $request->input('sort') : 'newest',
+            // Notarial register lookup (Workflow v2: through the linked register entry)
             'notarial' => array_filter($request->only(['n_series', 'n_book', 'n_page', 'n_doc'])),
         ];
 
@@ -59,12 +58,7 @@ class DocumentController extends Controller
                 'book' => isset($filters['notarial']['n_book']) ? strtoupper(trim($filters['notarial']['n_book'])) : null,
                 'page' => $filters['notarial']['n_page'] ?? null,
                 'doc' => $filters['notarial']['n_doc'] ?? null,
-            ])
-            ->when($filters['due'], fn ($q, $due) => match ($due) {
-                'overdue' => $q->overdue(),
-                'soon' => $q->dueWithin(3),
-                'week' => $q->dueWithin(7),
-            });
+            ]);
 
         $statusCounts = (clone $base)
             ->toBase()
@@ -79,13 +73,13 @@ class DocumentController extends Controller
                 'client' => fn ($q) => $q->withTrashed(),
                 'legalCase' => fn ($q) => $q->withTrashed()->select('id', 'case_code'),
                 'currentHolder:id,name',
+                'notarialEntry',
             ])
             ->withCount('attachments')
             ->when($filters['status'], fn ($q, $status) => $q->where('status', $status));
 
         match ($filters['sort']) {
             'oldest' => $query->orderBy('date_received')->orderBy('id'),
-            'due' => $query->orderByRaw('due_date IS NULL')->orderBy('due_date')->orderBy('id'),
             default => $query->orderByDesc('date_received')->orderByDesc('id'),
         };
 
@@ -160,14 +154,29 @@ class DocumentController extends Controller
             'movements.actor:id,name',
             'movements.fromUser:id,name',
             'movements.toUser:id,name',
+            'notarialEntry.recorder:id,name',
         ]);
+
+        $tracker = app(DocumentTracker::class);
+        $user = request()->user();
+
+        // Latest version of each file — the choices when the lawyer approves
+        $approvable = $document->attachments
+            ->groupBy(fn ($a) => $a->version_group_id ?? $a->id)
+            ->map(fn ($files) => $files->sortByDesc('version')->first())
+            ->sortByDesc('id')
+            ->mapWithKeys(fn ($a) => [$a->id => "{$a->original_name} (v{$a->version})"]);
 
         return view('documents.show', [
             'document' => $document,
-            // Phase 6: data for the "Update Tracking" form
-            'availableActions' => app(DocumentTracker::class)->availableActions($document),
+            // Workflow v2: next-step buttons and their form data
+            'nextSteps' => $tracker->nextSteps($document, $user),
+            'availableActions' => $tracker->availableActions($document, $user),
             'users' => User::active()->orderBy('name')->pluck('name', 'id'),
-            'returnTo' => $document->movements->first()?->from_user_id, // who handed it to the current holder
+            'lawyers' => User::attorneys()->active()->orderBy('name')->pluck('name', 'id'),
+            'defaultLawyerId' => $tracker->defaultLawyerId($document),
+            'approvable' => $approvable,
+            'keyDates' => $document->keyDates(),
         ]);
     }
 

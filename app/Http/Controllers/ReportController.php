@@ -8,6 +8,7 @@ use App\Models\Client;
 use App\Models\Document;
 use App\Models\DocumentMovement;
 use App\Models\DocumentType;
+use App\Models\NotarialEntry;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -25,12 +26,11 @@ class ReportController extends Controller
     public function index(): View
     {
         // Explicit select + groupBy (distinct() + pluck() failed on some setups)
-        $series = Document::query()
-            ->select('notarial_series')
-            ->whereNotNull('notarial_series')
-            ->groupBy('notarial_series')
-            ->orderByDesc('notarial_series')
-            ->pluck('notarial_series');
+        $series = NotarialEntry::query()
+            ->select('series')
+            ->groupBy('series')
+            ->orderByDesc('series')
+            ->pluck('series');
 
         return view('reports.index', [
             'documentTypes' => DocumentType::orderBy('name')->pluck('name', 'id'),
@@ -52,7 +52,7 @@ class ReportController extends Controller
         $status = in_array($request->input('status'), DocumentStatus::values(), true) ? $request->input('status') : null;
         $type = is_numeric($request->input('type')) ? (int) $request->input('type') : null;
         $holder = is_numeric($request->input('holder')) ? (int) $request->input('holder') : null;
-        $due = in_array($request->input('due'), ['open', 'overdue'], true) ? $request->input('due') : null;
+        $due = $request->input('due') === 'open' ? 'open' : null; // "In process only"
 
         $query = Document::query()
             ->with([
@@ -60,6 +60,7 @@ class ReportController extends Controller
                 'client' => fn ($q) => $q->withTrashed(),
                 'legalCase' => fn ($q) => $q->withTrashed()->select('id', 'case_code'),
                 'currentHolder:id,name',
+                'notarialEntry',
             ])
             ->when($from, fn ($q) => $q->whereDate('date_received', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('date_received', '<=', $to))
@@ -67,7 +68,6 @@ class ReportController extends Controller
             ->when($type, fn ($q) => $q->where('document_type_id', $type))
             ->when($holder, fn ($q) => $q->heldBy($holder))
             ->when($due === 'open', fn ($q) => $q->open())
-            ->when($due === 'overdue', fn ($q) => $q->overdue())
             ->orderBy('date_received')
             ->orderBy('id');
 
@@ -76,12 +76,12 @@ class ReportController extends Controller
 
         if ($request->input('format') === 'csv') {
             return $this->csv('documents-report', [
-                'Tracking Code', 'Date Received', 'Title', 'Type', 'Client', 'Case', 'Status', 'With', 'Location', 'Due Date', 'Overdue',
+                'Tracking Code', 'Date Received', 'Title', 'Type', 'Client', 'Case', 'Status', 'With', 'Location',
                 'Notarial Reference',
             ], $documents->map(fn (Document $d) => [
                 $d->tracking_code, $d->date_received->toDateString(), $d->title, $d->documentType?->name,
                 $d->client?->display_name, $d->legalCase?->case_code, $d->status->label(), $d->currentHolder?->name,
-                $d->physical_location, $d->due_date?->toDateString(), $d->is_overdue ? 'Yes' : 'No', $d->notarial_reference,
+                $d->physical_location, $d->notarial_reference,
             ]));
         }
 
@@ -90,13 +90,12 @@ class ReportController extends Controller
             'total' => $total,
             'truncated' => $total > self::MAX_ROWS,
             'summary' => collect(DocumentStatus::cases())->mapWithKeys(fn ($s) => [$s->label() => $documents->where('status', $s)->count()]),
-            'overdueCount' => $documents->filter(fn ($d) => $d->is_overdue)->count(),
             'filters' => array_filter([
                 'Received' => $this->rangeLabel($from, $to),
                 'Status' => $status ? DocumentStatus::from($status)->label() : null,
                 'Type' => $type ? DocumentType::find($type)?->name : null,
                 'With' => $holder ? User::find($holder)?->name : null,
-                'Showing' => ['open' => 'In-process documents only', 'overdue' => 'Overdue documents only'][$due] ?? null,
+                'Showing' => $due ? 'In-process documents only' : null,
             ]),
         ]);
     }
@@ -157,29 +156,29 @@ class ReportController extends Controller
         $month = in_array((int) $request->input('month'), range(1, 12), true) ? (int) $request->input('month') : null;
         $book = trim((string) $request->input('book')) ?: null;
 
-        $documents = Document::query()
-            ->with(['documentType:id,name', 'client' => fn ($q) => $q->withTrashed()])
-            ->whereNotNull('notarial_doc_no')
-            ->where('notarial_series', $series)
-            ->when($month, fn ($q) => $q->whereMonth('date_received', $month))
-            ->when($book, fn ($q) => $q->where('notarial_book_no', strtoupper($book)))
-            ->orderBy('notarial_book_no')
-            ->orderBy('notarial_page_no')
-            ->orderBy('notarial_doc_no')
+        // Workflow v2: read from the Notarial Register; month = month the entry was recorded
+        $entries = NotarialEntry::query()
+            ->with(['document' => fn ($q) => $q->with(['documentType:id,name', 'client' => fn ($c) => $c->withTrashed()])])
+            ->where('series', $series)
+            ->when($month, fn ($q) => $q->whereMonth('created_at', $month))
+            ->when($book, fn ($q) => $q->where('book_no', strtoupper($book)))
+            ->orderBy('book_no')
+            ->orderBy('page_no')
+            ->orderBy('doc_no')
             ->limit(self::MAX_ROWS)
             ->get();
 
         if ($request->input('format') === 'csv') {
             return $this->csv("notarial-register-{$series}", [
-                'Doc. No.', 'Page No.', 'Book No.', 'Series', 'Date', 'Instrument', 'Type', 'Principal / Client', 'Tracking Code',
-            ], $documents->map(fn (Document $d) => [
-                $d->notarial_doc_no, $d->notarial_page_no, $d->notarial_book_no, $d->notarial_series,
-                $d->date_received->toDateString(), $d->title, $d->documentType?->name, $d->client?->display_name, $d->tracking_code,
+                'Doc. No.', 'Page No.', 'Book No.', 'Series', 'Date Recorded', 'Instrument', 'Type', 'Principal / Client', 'Tracking Code',
+            ], $entries->map(fn (NotarialEntry $e) => [
+                $e->doc_no, $e->page_no, $e->book_no, $e->series, $e->created_at->toDateString(),
+                $e->document?->title, $e->document?->documentType?->name, $e->document?->client?->display_name, $e->document?->tracking_code,
             ]));
         }
 
         return view('reports.notarial', [
-            'documents' => $documents,
+            'entries' => $entries,
             'series' => $series,
             'filters' => array_filter([
                 'Series' => (string) $series,

@@ -106,7 +106,7 @@ class LegalCaseController extends Controller
         $stats = [
             'total' => $documents->count(),
             'open' => $documents->reject(fn ($doc) => $doc->status->isFinal())->count(),
-            'overdue' => $documents->filter(fn ($doc) => $doc->is_overdue)->count(),
+            'released' => $documents->filter(fn ($doc) => $doc->status->isFinal())->count(),
         ];
 
         return view('cases.show', ['case' => $legalCase, 'documents' => $documents, 'stats' => $stats]);

@@ -7,6 +7,7 @@ use App\Http\Controllers\DocumentAttachmentController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\DocumentMovementController;
 use App\Http\Controllers\LegalCaseController;
+use App\Http\Controllers\NotarialEntryController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SearchController;
@@ -49,8 +50,13 @@ Route::middleware('auth')->group(function () {
         ->name('attachments.download');
     Route::delete('/attachments/{attachment}', [DocumentAttachmentController::class, 'destroy'])
         ->name('attachments.destroy');
-    Route::patch('/attachments/{attachment}/final', [DocumentAttachmentController::class, 'markFinal'])
-        ->name('attachments.final'); // Phase 8: version control
+
+    // ── Workflow v2: Notarial Register (separate record, linked to the document) ──
+    Route::get('/notarial-register', [NotarialEntryController::class, 'index'])->name('notarial.index');
+    Route::post('/documents/{document}/notarial-entry', [NotarialEntryController::class, 'store'])->name('notarial.store');
+    Route::get('/notarial-register/{notarial_entry}/edit', [NotarialEntryController::class, 'edit'])->name('notarial.edit');
+    Route::put('/notarial-register/{notarial_entry}', [NotarialEntryController::class, 'update'])->name('notarial.update');
+    Route::delete('/notarial-register/{notarial_entry}', [NotarialEntryController::class, 'destroy'])->name('notarial.destroy');
 
     // ── Phase 6: Tracking (append-only — no edit/delete routes on purpose) ──
     Route::post('/documents/{document}/movements', [DocumentMovementController::class, 'store'])

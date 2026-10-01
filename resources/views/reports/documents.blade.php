@@ -1,5 +1,5 @@
 <x-print-layout title="Documents Report" orientation="landscape" :filters="$filters" :csv="true">
-    <div class="avoid-break mb-4 grid grid-cols-4 gap-2 text-center sm:grid-cols-8">
+    <div class="avoid-break mb-4 grid grid-cols-4 gap-2 text-center sm:grid-cols-6">
         <div class="rounded-lg border border-slate-200 p-2">
             <p class="text-lg font-bold text-slate-900">{{ $total }}</p><p class="text-[10px] uppercase text-slate-500">Total</p>
         </div>
@@ -8,9 +8,6 @@
                 <p class="text-lg font-bold text-slate-900">{{ $count }}</p><p class="text-[10px] uppercase text-slate-500">{{ $label }}</p>
             </div>
         @endforeach
-        <div class="rounded-lg border border-red-200 bg-red-50 p-2">
-            <p class="text-lg font-bold text-red-700">{{ $overdueCount }}</p><p class="text-[10px] uppercase text-red-600">Overdue</p>
-        </div>
     </div>
 
     @if ($truncated)
@@ -30,18 +27,17 @@
                     <th class="py-1.5 pr-2">Client / Case</th>
                     <th class="py-1.5 pr-2">Status</th>
                     <th class="py-1.5 pr-2">With / Location</th>
-                    <th class="py-1.5">Due</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach ($documents as $doc)
-                    <tr class="border-b border-slate-200 align-top {{ $doc->is_overdue ? 'bg-red-50' : '' }}">
+                    <tr class="border-b border-slate-200 align-top">
                         <td class="py-1.5 pr-2 text-slate-400">{{ $loop->iteration }}</td>
                         <td class="whitespace-nowrap py-1.5 pr-2 font-mono font-semibold">{{ $doc->tracking_code }}</td>
                         <td class="whitespace-nowrap py-1.5 pr-2">{{ $doc->date_received->format('M d, Y') }}</td>
                         <td class="py-1.5 pr-2">
                             <p class="font-medium">{{ $doc->title }}</p>
-                            <p class="text-slate-500">{{ $doc->documentType?->name }}@if ($doc->notarial_doc_no) · Doc {{ $doc->notarial_doc_no }}/Pg {{ $doc->notarial_page_no }}/Bk {{ $doc->notarial_book_no }}/{{ $doc->notarial_series }}@endif</p>
+                            <p class="text-slate-500">{{ $doc->documentType?->name }}@if ($doc->notarialEntry) · Doc {{ $doc->notarialEntry->doc_no }}/Pg {{ $doc->notarialEntry->page_no }}/Bk {{ $doc->notarialEntry->book_no }}/{{ $doc->notarialEntry->series }}@endif</p>
                         </td>
                         <td class="py-1.5 pr-2">
                             <p>{{ $doc->client?->display_name }}</p>
@@ -51,9 +47,6 @@
                         <td class="py-1.5 pr-2">
                             <p>{{ $doc->currentHolder?->name ?? '—' }}</p>
                             <p class="text-slate-500">{{ $doc->physical_location }}</p>
-                        </td>
-                        <td class="whitespace-nowrap py-1.5 {{ $doc->is_overdue ? 'font-semibold text-red-700' : '' }}">
-                            {{ $doc->due_date?->format('M d, Y') ?? '—' }}{{ $doc->is_overdue ? ' (overdue)' : '' }}
                         </td>
                     </tr>
                 @endforeach

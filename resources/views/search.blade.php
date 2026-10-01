@@ -53,7 +53,6 @@
                                     </span>
                                     <span class="flex shrink-0 items-center gap-2">
                                         <x-status-badge :status="$document->status" />
-                                        <x-due-badge :document="$document" />
                                     </span>
                                 </a>
                             </li>

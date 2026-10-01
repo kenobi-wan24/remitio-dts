@@ -83,7 +83,7 @@
             <div class="grid grid-cols-3 gap-4">
                 <x-stat-card label="Documents" :value="$stats['total']" icon="document-text" color="indigo" />
                 <x-stat-card label="In Process" :value="$stats['open']" icon="arrows-right-left" color="blue" />
-                <x-stat-card label="Overdue" :value="$stats['overdue']" icon="exclamation-triangle" :color="$stats['overdue'] ? 'red' : 'green'" />
+                <x-stat-card label="Released / Archived" :value="$stats['released']" icon="arrow-up-tray" color="green" />
             </div>
 
             <x-card title="Case Documents" :padding="false">
@@ -105,7 +105,6 @@
                                     <th class="px-5 py-2.5">Document</th>
                                     <th class="px-5 py-2.5">Status</th>
                                     <th class="px-5 py-2.5">With</th>
-                                    <th class="px-5 py-2.5">Due</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100">
@@ -124,15 +123,6 @@
                                         </td>
                                         <td class="px-5 py-3"><x-status-badge :status="$document->status" /></td>
                                         <td class="whitespace-nowrap px-5 py-3 text-slate-600">{{ $document->currentHolder?->name ?? '—' }}</td>
-                                        <td class="whitespace-nowrap px-5 py-3">
-                                            @if ($document->is_overdue)
-                                                <x-status-badge color="red" label="Overdue · {{ $document->due_date->format('M d') }}" />
-                                            @elseif ($document->is_due_soon)
-                                                <x-status-badge color="amber" label="{{ $document->due_date->format('M d') }}" />
-                                            @else
-                                                <span class="text-slate-500">{{ $document->due_date?->format('M d, Y') ?? '—' }}</span>
-                                            @endif
-                                        </td>
                                     </tr>
                                 @endforeach
                             </tbody>

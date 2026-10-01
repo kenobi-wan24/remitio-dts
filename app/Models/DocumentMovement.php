@@ -21,6 +21,7 @@ class DocumentMovement extends Model
         'to_status',
         'location',
         'remarks',
+        'received_by',
         'acted_by',
         'acted_at',
     ];

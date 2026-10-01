@@ -31,26 +31,22 @@ class DashboardController extends Controller
             'stats' => [
                 'active_cases' => LegalCase::ongoing()->count(),
                 'open_documents' => Document::open()->count(),
-                'overdue' => Document::overdue()->count(),
+                'for_review' => Document::where('status', DocumentStatus::ForReview->value)->count(),
                 'with_me' => Document::open()->heldBy($user)->count(),
             ],
 
-            // Phase 7: overdue + due within 7 days, most urgent first
-            'needsAttention' => Document::open()
-                ->whereNotNull('due_date')
-                ->whereDate('due_date', '<=', today()->addDays(7))
-                ->with(['client' => fn ($q) => $q->withTrashed(), 'currentHolder:id,name'])
-                ->orderBy('due_date')
+            // Workflow v2: documents waiting for ME, longest-waiting first
+            'waitingForMe' => Document::open()
+                ->heldBy($user)
+                ->with(['client' => fn ($q) => $q->withTrashed()])
+                ->orderBy('updated_at')
                 ->take(8)
                 ->get(),
 
-            // Phase 7: what I'm holding right now
-            'withMe' => Document::open()
-                ->heldBy($user)
-                ->with(['client' => fn ($q) => $q->withTrashed()])
-                ->orderByRaw('due_date IS NULL')
-                ->orderBy('due_date')
-                ->latest('updated_at')
+            // Workflow v2 (replaces "overdue"): in-process documents that haven't moved the longest
+            'longestInProcess' => Document::open()
+                ->with(['client' => fn ($q) => $q->withTrashed(), 'currentHolder:id,name'])
+                ->orderBy('updated_at')
                 ->take(6)
                 ->get(),
 

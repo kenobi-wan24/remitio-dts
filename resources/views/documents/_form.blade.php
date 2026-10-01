@@ -94,25 +94,12 @@
         </div>
     </x-card>
 
-    {{-- Phase 8: notarial register reference --}}
-    <x-card title="Notarial Register Details (for notarized documents)">
-        <p class="-mt-1 mb-4 text-xs text-slate-500">Optional. Fill in all four exactly as written on the document, e.g. <em>Doc. No. 45; Page No. 9; Book No. III; Series of {{ now()->year }}</em>.</p>
-        <div class="grid grid-cols-2 gap-5 sm:grid-cols-4">
-            <x-form.input name="notarial_doc_no" type="number" label="Doc. No." :value="$document->notarial_doc_no" min="1" />
-            <x-form.input name="notarial_page_no" type="number" label="Page No." :value="$document->notarial_page_no" min="1" />
-            <x-form.input name="notarial_book_no" label="Book No." :value="$document->notarial_book_no" maxlength="10" placeholder="e.g. III" />
-            <x-form.input name="notarial_series" type="number" label="Series (year)" :value="$document->notarial_series"
-                min="1990" max="{{ now()->year + 1 }}" placeholder="{{ now()->year }}" />
-        </div>
-    </x-card>
-
-    <x-card title="Dates">
+    <x-card title="Date">
         <div class="grid gap-5 sm:grid-cols-2">
             <x-form.input name="date_received" type="date" label="Date Received" :value="$document->date_received" required
-                max="{{ today()->toDateString() }}" />
-            <x-form.input name="due_date" type="date" label="Due Date" :value="$document->due_date"
-                hint="Optional — filing deadline, hearing date, or release date." />
+                max="{{ today()->toDateString() }}" hint="The date the request or document reached the office." />
         </div>
+        <p class="mt-3 text-xs text-slate-500">Drafted, approved, signed, notarized and released dates are recorded automatically as the document moves.</p>
     </x-card>
 
     @if ($isCreate)

@@ -87,6 +87,14 @@
                         </p>
                     @endif
 
+                    {{-- Workflow v2: who received it on release --}}
+                    @if ($movement->received_by)
+                        <p class="mt-1 flex items-center gap-1.5 text-sm text-slate-700">
+                            <x-icon name="user" class="h-4 w-4 text-slate-400" />
+                            Received by <span class="font-medium">{{ $movement->received_by }}</span>
+                        </p>
+                    @endif
+
                     {{-- remarks --}}
                     @if ($movement->remarks)
                         <p class="mt-2 rounded-lg border-l-2 border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-600">{{ $movement->remarks }}</p>

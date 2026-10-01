@@ -45,7 +45,7 @@
         @if ($showTrashed) <input type="hidden" name="view" value="trash"> @endif
         @if ($filters['status']) <input type="hidden" name="status" value="{{ $filters['status'] }}"> @endif
 
-        <div class="sm:col-span-2 lg:col-span-4">
+        <div class="sm:col-span-2 lg:col-span-6">
             <label for="q" class="block text-xs font-medium text-slate-500">Search</label>
             <div class="relative mt-1">
                 <x-icon name="magnifying-glass" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -57,8 +57,7 @@
         @foreach ([
             ['type', 'Type', ['' => 'All types'] + $documentTypes->all(), $filters['type']],
             ['holder', 'With', ['' => 'Anyone', 'me' => 'Me'] + $users->all(), $filters['holder']],
-            ['due', 'Due', ['' => 'Any time', 'overdue' => 'Overdue', 'soon' => 'Next 3 days', 'week' => 'Next 7 days'], $filters['due']],
-            ['sort', 'Sort by', ['newest' => 'Newest received', 'oldest' => 'Oldest received', 'due' => 'Due date'], $filters['sort']],
+            ['sort', 'Sort by', ['newest' => 'Newest received', 'oldest' => 'Oldest received'], $filters['sort']],
         ] as [$field, $label, $options, $current])
             <div class="lg:col-span-2">
                 <label for="{{ $field }}" class="block text-xs font-medium text-slate-500">{{ $label }}</label>
@@ -89,7 +88,7 @@
         </div>
 
         <div class="flex gap-2 sm:col-span-2 lg:col-span-12 lg:justify-end">
-            @if (request()->hasAny(['q', 'type', 'holder', 'due', 'sort', 'status', 'n_doc', 'n_page', 'n_book', 'n_series']))
+            @if (request()->hasAny(['q', 'type', 'holder', 'sort', 'status', 'n_doc', 'n_page', 'n_book', 'n_series']))
                 <x-button variant="ghost" :href="route('documents.index', $showTrashed ? ['view' => 'trash'] : [])">Reset</x-button>
             @endif
             <x-button>Apply Filters</x-button>
@@ -97,7 +96,7 @@
     </form>
 
     @if ($documents->isEmpty())
-        @if (request()->hasAny(['q', 'type', 'holder', 'due', 'status', 'n_doc', 'n_page', 'n_book', 'n_series']))
+        @if (request()->hasAny(['q', 'type', 'holder', 'status', 'n_doc', 'n_page', 'n_book', 'n_series']))
             <x-empty-state icon="magnifying-glass" title="No matching documents" message="Try another search term or clear the filters." />
         @elseif ($showTrashed)
             <x-empty-state icon="trash" title="Trash is empty" message="Deleted documents will appear here and can be restored." />
@@ -117,13 +116,12 @@
                             <th class="px-5 py-3">Client / Case</th>
                             <th class="px-5 py-3">Status</th>
                             <th class="px-5 py-3">With</th>
-                            <th class="px-5 py-3">Due</th>
                             <th class="px-5 py-3"><span class="sr-only">Actions</span></th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                         @foreach ($documents as $document)
-                            <tr @class(['hover:bg-slate-50', 'bg-red-50/40' => $document->is_overdue])>
+                            <tr class="hover:bg-slate-50">
                                 <td class="whitespace-nowrap px-5 py-3 font-mono text-xs">
                                     @if ($showTrashed)
                                         <span class="font-semibold text-slate-900">{{ $document->tracking_code }}</span>
@@ -139,8 +137,9 @@
                                             · <x-icon name="folder-open" class="h-3 w-3" /> {{ $document->attachments_count }}
                                         @endif
                                     </p>
-                                    @if ($document->notarial_doc_no)
-                                        <p class="text-xs text-slate-400">Doc {{ $document->notarial_doc_no }} · Pg {{ $document->notarial_page_no }} · Bk {{ $document->notarial_book_no }} · {{ $document->notarial_series }}</p>
+                                    @if ($document->notarialEntry)
+                                        @php $n = $document->notarialEntry; @endphp
+                                        <p class="text-xs text-slate-400">Doc {{ $n->doc_no }} · Pg {{ $n->page_no }} · Bk {{ $n->book_no }} · {{ $n->series }}</p>
                                     @endif
                                 </td>
                                 <td class="max-w-[14rem] px-5 py-3">
@@ -149,7 +148,6 @@
                                 </td>
                                 <td class="px-5 py-3"><x-status-badge :status="$document->status" /></td>
                                 <td class="whitespace-nowrap px-5 py-3 text-slate-600">{{ $document->currentHolder?->name ?? '—' }}</td>
-                                <td class="px-5 py-3"><x-due-badge :document="$document" /></td>
                                 <td class="whitespace-nowrap px-5 py-3 text-right">
                                     @if ($showTrashed)
                                         @can('restore', $document)

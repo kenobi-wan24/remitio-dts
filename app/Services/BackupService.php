@@ -25,7 +25,7 @@ class BackupService
     /** In foreign-key order: parents first. Restore deletes in reverse, inserts in this order. */
     public const TABLES = [
         'users', 'document_types', 'clients', 'legal_cases',
-        'documents', 'document_movements', 'document_attachments', 'activity_logs',
+        'documents', 'notarial_entries', 'document_movements', 'document_attachments', 'activity_logs',
     ];
 
     public const DISK = 'local';
@@ -186,10 +186,16 @@ class BackupService
             }
         }
 
+        // The backup's tables must match this version exactly
         $current = DB::table('migrations')->pluck('migration')->all();
-        if (array_diff($manifest['migrations'] ?? [], $current)) {
+        $theirs = $manifest['migrations'] ?? [];
+        if (array_diff($theirs, $current)) {
             $zip->close();
             throw new RuntimeException('This backup was made by a newer version of the system. Update the system (git pull + php artisan migrate) first.');
+        }
+        if (array_diff($current, $theirs)) {
+            $zip->close();
+            throw new RuntimeException('This backup was made by an older version of the system, before a database update. It cannot be restored into this version.');
         }
 
         $safety = $this->create($user, 'before-restore');

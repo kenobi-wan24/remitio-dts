@@ -20,6 +20,7 @@
             <div>
                 <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Status</p>
                 <div class="mt-1"><x-status-badge :status="$document->status" class="text-sm" /></div>
+                <p class="mt-1 text-xs text-slate-500">{{ $document->status->meaning() }}</p>
             </div>
             <div>
                 <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Currently With</p>
@@ -62,22 +63,10 @@
                             @endif
                         </dd>
                     </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Received</dt>
-                            <dd class="mt-0.5 text-slate-900">{{ $document->date_received->format('M d, Y') }}</dd>
-                        </div>
-                        <div>
-                            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Due</dt>
-                            <dd class="mt-0.5"><x-due-badge :document="$document" /></dd>
-                        </div>
+                    <div>
+                        <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Date Received</dt>
+                        <dd class="mt-0.5 text-slate-900">{{ $document->date_received->format('M d, Y') }}</dd>
                     </div>
-                    @if ($document->notarial_reference)
-                        <div>
-                            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Notarial Register</dt>
-                            <dd class="mt-0.5 font-medium text-slate-900">{{ $document->notarial_reference }}</dd>
-                        </div>
-                    @endif
                     <div>
                         <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Recorded</dt>
                         <dd class="mt-0.5 text-slate-900">
@@ -87,6 +76,23 @@
                     </div>
                 </dl>
             </x-card>
+
+            {{-- Workflow v2: dates filled in automatically from the tracking history --}}
+            <x-card title="Key Dates">
+                <dl class="space-y-2 text-sm">
+                    @foreach ($keyDates as $label => $date)
+                        <div class="flex items-baseline justify-between gap-3">
+                            <dt class="text-slate-500">{{ $label }}</dt>
+                            <dd @class(['text-right', 'text-slate-900' => $date, 'text-slate-300' => ! $date])>
+                                {{ $date?->format('M d, Y h:i A') ?? 'Not yet' }}
+                            </dd>
+                        </div>
+                    @endforeach
+                </dl>
+            </x-card>
+
+            {{-- Workflow v2: Notarial Register — a separate record linked to this document --}}
+            @include('documents._notarial-box')
 
             <x-card title="Description">
                 @if ($document->description)

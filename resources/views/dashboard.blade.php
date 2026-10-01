@@ -10,24 +10,24 @@
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <x-stat-card label="Active Cases" :value="$stats['active_cases']" icon="briefcase" color="blue" :href="route('cases.index')" />
         <x-stat-card label="Documents In Process" :value="$stats['open_documents']" icon="document-text" color="indigo" :href="route('documents.index')" />
-        <x-stat-card label="Overdue Documents" :value="$stats['overdue']" icon="exclamation-triangle"
-            :color="$stats['overdue'] > 0 ? 'red' : 'green'" :href="route('documents.index', ['due' => 'overdue'])" />
-        <x-stat-card label="Documents With Me" :value="$stats['with_me']" icon="inbox" color="amber"
+        <x-stat-card label="For Review" :value="$stats['for_review']" icon="eye" color="amber"
+            :href="route('documents.index', ['status' => 'for_review'])" />
+        <x-stat-card label="Waiting for Me" :value="$stats['with_me']" icon="inbox" color="green"
             :href="route('documents.index', ['holder' => 'me'])" />
     </div>
 
     <div class="mt-6 grid gap-6 lg:grid-cols-3">
-        {{-- Needs attention --}}
-        <x-card title="Needs Attention" :padding="false" class="lg:col-span-2">
+        {{-- Workflow v2: what's waiting on me, longest-waiting first --}}
+        <x-card title="Waiting for Me" :padding="false" class="lg:col-span-2">
             <x-slot name="actions">
-                <a href="{{ route('documents.index', ['due' => 'week', 'sort' => 'due']) }}" class="text-xs font-medium text-slate-600 hover:text-slate-900">Due this week →</a>
+                <a href="{{ route('documents.index', ['holder' => 'me']) }}" class="text-xs font-medium text-slate-600 hover:text-slate-900">View all →</a>
             </x-slot>
 
-            @if ($needsAttention->isEmpty())
-                <x-empty-state class="m-5" icon="check-circle" title="All caught up" message="No documents are overdue or due in the next 7 days." />
+            @if ($waitingForMe->isEmpty())
+                <x-empty-state class="m-5" icon="check-circle" title="All caught up" message="No documents are waiting for you." />
             @else
                 <ul class="divide-y divide-slate-100">
-                    @foreach ($needsAttention as $document)
+                    @foreach ($waitingForMe as $document)
                         <li>
                             <a href="{{ route('documents.show', $document) }}" class="flex items-center gap-4 px-5 py-3 hover:bg-slate-50">
                                 <div class="min-w-0 flex-1">
@@ -36,12 +36,9 @@
                                         <x-status-badge :status="$document->status" />
                                     </p>
                                     <p class="truncate text-sm text-slate-700">{{ $document->title }}</p>
-                                    <p class="truncate text-xs text-slate-500">
-                                        {{ $document->client?->display_name }}
-                                        · with {{ $document->currentHolder?->name ?? 'nobody' }}
-                                    </p>
+                                    <p class="truncate text-xs text-slate-500">{{ $document->client?->display_name }} · {{ $document->status->meaning() }}</p>
                                 </div>
-                                <x-due-badge :document="$document" />
+                                <span class="shrink-0 text-xs text-slate-400" title="Last moved">{{ $document->updated_at->diffForHumans() }}</span>
                             </a>
                         </li>
                     @endforeach
@@ -54,7 +51,7 @@
             @php
                 $barColors = [
                     'blue' => 'bg-blue-500', 'indigo' => 'bg-indigo-500', 'amber' => 'bg-amber-500',
-                    'purple' => 'bg-purple-500', 'green' => 'bg-green-500', 'gray' => 'bg-slate-400',
+                    'purple' => 'bg-purple-500', 'green' => 'bg-green-500', 'gray' => 'bg-slate-400', 'red' => 'bg-red-500',
                 ];
             @endphp
             <ul class="space-y-3">
@@ -113,24 +110,21 @@
         </x-card>
 
         <div class="space-y-6">
-            {{-- With me --}}
-            <x-card title="With Me" :padding="false">
-                <x-slot name="actions">
-                    <a href="{{ route('documents.index', ['holder' => 'me']) }}" class="text-xs font-medium text-slate-600 hover:text-slate-900">View all →</a>
-                </x-slot>
-                @if ($withMe->isEmpty())
-                    <p class="px-5 py-6 text-center text-sm text-slate-400">You're not holding any documents.</p>
+            {{-- Workflow v2 (replaces due dates): documents that haven't moved the longest --}}
+            <x-card title="In Process Longest" :padding="false">
+                @if ($longestInProcess->isEmpty())
+                    <p class="px-5 py-6 text-center text-sm text-slate-400">No documents in process.</p>
                 @else
                     <ul class="divide-y divide-slate-100">
-                        @foreach ($withMe as $document)
+                        @foreach ($longestInProcess as $document)
                             <li>
                                 <a href="{{ route('documents.show', $document) }}" class="block px-5 py-3 hover:bg-slate-50">
                                     <div class="flex items-center justify-between gap-2">
                                         <span class="font-mono text-xs font-semibold text-slate-900">{{ $document->tracking_code }}</span>
-                                        <x-due-badge :document="$document" />
+                                        <span class="text-xs text-slate-400">{{ $document->updated_at->diffForHumans(null, true) }}</span>
                                     </div>
                                     <p class="truncate text-sm text-slate-700">{{ $document->title }}</p>
-                                    <p class="truncate text-xs text-slate-500">{{ $document->client?->display_name }}</p>
+                                    <p class="truncate text-xs text-slate-500">{{ $document->status->label() }} · with {{ $document->currentHolder?->name ?? 'nobody' }}</p>
                                 </a>
                             </li>
                         @endforeach

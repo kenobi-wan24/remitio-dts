@@ -39,15 +39,6 @@
         @endif
         <x-button variant="ghost" size="sm" :href="route('attachments.download', $attachment)">Download</x-button>
 
-        @can('markFinal', $attachment)
-            @unless ($attachment->is_final)
-                <form method="POST" action="{{ route('attachments.final', $attachment) }}">
-                    @csrf
-                    @method('PATCH')
-                    <x-button variant="secondary" size="sm" icon="check-circle">Mark Final</x-button>
-                </form>
-            @endunless
-        @endcan
 
         @can('delete', $attachment)
             <x-confirm-delete :action="route('attachments.destroy', $attachment)" label=""

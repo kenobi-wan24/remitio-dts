@@ -18,8 +18,9 @@ class DocumentMovementController extends Controller
         $movement = $tracker->record(
             $document,
             MovementAction::from($request->validated('action')),
-            $request->validated(),
+            $request->safe()->except('file'),
             $request->user(),
+            $request->file('file'),
         );
 
         return redirect()

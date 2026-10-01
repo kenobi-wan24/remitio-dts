@@ -2,9 +2,10 @@
 
 namespace App\Models;
 
-use App\Models\Concerns\LogsActivity;
 use App\Enums\DocumentStatus;
+use App\Enums\MovementAction;
 use App\Models\Concerns\GeneratesReferenceCode;
+use App\Models\Concerns\LogsActivity;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -28,12 +29,7 @@ class Document extends Model
         'status',
         'current_holder_id',
         'physical_location',
-        'notarial_doc_no',
-        'notarial_page_no',
-        'notarial_book_no',
-        'notarial_series',
         'date_received',
-        'due_date',
         'created_by',
     ];
 
@@ -42,10 +38,6 @@ class Document extends Model
         return [
             'status' => DocumentStatus::class,
             'date_received' => 'date',
-            'due_date' => 'date',
-            'notarial_doc_no' => 'integer',
-            'notarial_page_no' => 'integer',
-            'notarial_series' => 'integer',
         ];
     }
 
@@ -66,49 +58,36 @@ class Document extends Model
 
     // ── Accessors ───────────────────────────────────────────
 
-    /** $document->is_overdue */
-    protected function isOverdue(): Attribute
-    {
-        return Attribute::get(fn () => $this->due_date !== null
-            && ! $this->status->isFinal()
-            && $this->due_date->lt(today()));
-    }
-
-    /** $document->is_due_soon → due within the next 3 days */
-    protected function isDueSoon(): Attribute
-    {
-        return Attribute::get(fn () => $this->due_date !== null
-            && ! $this->status->isFinal()
-            && $this->due_date->betweenIncluded(today(), today()->addDays(3)));
-    }
-
     /**
-     * Phase 8: $document->notarial_reference
-     * → "Doc. No. 45; Page No. 9; Book No. III; Series of 2026" (null if not notarized)
+     * $document->notarial_reference
+     * → "Doc. No. 45; Page No. 9; Book No. III; Series of 2026" (null if not notarized).
+     * Workflow v2: comes from the linked Notarial Register entry.
      */
     protected function notarialReference(): Attribute
     {
-        return Attribute::get(function () {
-            if (! $this->notarial_doc_no && ! $this->notarial_series) {
-                return null;
-            }
+        return Attribute::get(fn () => $this->notarialEntry?->reference);
+    }
 
-            return "Doc. No. {$this->notarial_doc_no}; Page No. {$this->notarial_page_no}; "
-                ."Book No. {$this->notarial_book_no}; Series of {$this->notarial_series}";
-        });
+    /**
+     * Workflow v2: key dates taken from the tracking history (latest occurrence of each step).
+     * Needs `movements` loaded; returns [label => Carbon|null].
+     */
+    public function keyDates(): array
+    {
+        $at = fn (MovementAction ...$actions) => $this->movements
+            ->first(fn ($m) => in_array($m->action, $actions, true))?->acted_at;
+
+        return [
+            'Received' => $this->movements->last()?->acted_at,
+            'Drafted (submitted for review)' => $at(MovementAction::SubmittedForReview),
+            'Approved' => $at(MovementAction::Approved),
+            'Signed' => $at(MovementAction::Signed),
+            'Notarial entry recorded' => $this->notarialEntry?->created_at,
+            'Released' => $at(MovementAction::ReleasedToClient),
+        ];
     }
 
     // ── Scopes ──────────────────────────────────────────────
-
-    /** Phase 8: find by notarial register numbers (any combination). */
-    public function scopeNotarialLookup(Builder $query, array $filters): Builder
-    {
-        return $query
-            ->when($filters['series'] ?? null, fn ($q, $v) => $q->where('notarial_series', (int) $v))
-            ->when($filters['book'] ?? null, fn ($q, $v) => $q->where('notarial_book_no', $v))
-            ->when($filters['page'] ?? null, fn ($q, $v) => $q->where('notarial_page_no', (int) $v))
-            ->when($filters['doc'] ?? null, fn ($q, $v) => $q->where('notarial_doc_no', (int) $v));
-    }
 
     /** Still being worked on in the office (not released/archived). */
     public function scopeOpen(Builder $query): Builder
@@ -116,25 +95,12 @@ class Document extends Model
         return $query->whereNotIn('status', DocumentStatus::finalValues());
     }
 
-    public function scopeOverdue(Builder $query): Builder
-    {
-        return $query->open()
-            ->whereNotNull('due_date')
-            ->whereDate('due_date', '<', today());
-    }
-
-    public function scopeDueWithin(Builder $query, int $days): Builder
-    {
-        return $query->open()
-            ->whereBetween('due_date', [today()->toDateString(), today()->addDays($days)->toDateString()]);
-    }
-
     public function scopeHeldBy(Builder $query, User|int $user): Builder
     {
         return $query->where('current_holder_id', $user instanceof User ? $user->id : $user);
     }
 
-    /** Tracking code, title, location — and (Phase 5) client name/code and case code/docket. */
+    /** Tracking code, title, location, client name/code, case code/docket. */
     public function scopeSearch(Builder $query, ?string $term): Builder
     {
         if (blank($term)) {
@@ -151,6 +117,16 @@ class Document extends Model
                     ->where('case_code', 'like', $like)
                     ->orWhere('docket_number', 'like', $like));
         });
+    }
+
+    /** Workflow v2: notarial lookup goes through the linked register entry. */
+    public function scopeNotarialLookup(Builder $query, array $filters): Builder
+    {
+        $filters = array_filter($filters, fn ($v) => filled($v));
+
+        return $filters
+            ? $query->whereHas('notarialEntry', fn (Builder $e) => $e->lookup($filters))
+            : $query;
     }
 
     // ── Relationships ───────────────────────────────────────
@@ -198,7 +174,13 @@ class Document extends Model
         return $this->hasMany(DocumentAttachment::class)->latest();
     }
 
-    // ── Activity log (Phase 9) ──────────────────────────────
+    /** Workflow v2: the Notarial Register entry for this document (if notarized). */
+    public function notarialEntry(): HasOne
+    {
+        return $this->hasOne(NotarialEntry::class);
+    }
+
+    // ── Activity log ────────────────────────────────────────
 
     public function activityLabel(): string
     {

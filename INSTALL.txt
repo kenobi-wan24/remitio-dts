@@ -1,33 +1,43 @@
-PHASE 11A — BACKUP & RESTORE · AUTOMATED TESTS · DEPLOYMENT FILES
-================================================================
-!! Install AFTER the panel presentation. Your demo version is tagged v0.9-panel. !!
+PHASE 11B — WORKFLOW v2 (core)
+==============================
+10 statuses + next-step buttons · lawyer-only approval · automatic holder · Hand over
+Notarial Register module (separate record) · due date removed · Key Dates panel
+"Waiting for me" dashboard · tests updated
 
-HOW TO COPY (merge): extract to Downloads\phase11, copy app, resources, routes, tests
-and the 3 root files (README.md, start-dts.bat, backup-dts.bat) into remitio-dts\
--> "Replace the files in the destination".
+BEFORE YOU START
+ git status        -> must be clean (Phase 11A committed). If not, commit first.
+ php artisan dts:backup     (optional safety copy; requires extension=zip)
 
-FILES
- NEW       app/Services/BackupService.php
- NEW       app/Http/Controllers/Admin/BackupController.php
- NEW       app/Console/Commands/BackupCommand.php         (php artisan dts:backup)
- NEW       app/Console/Commands/CreateAdminCommand.php    (php artisan dts:create-admin)
- REPLACES  app/Models/ActivityLog.php                     (backup action labels)
- REPLACES  routes/web.php                                 (5 backup routes)
- REPLACES  resources/views/layouts/sidebar.blade.php      ("Backup & Restore" link)
- NEW       resources/views/admin/backups/index.blade.php
- NEW       tests/Feature/AccessControlTest.php            (7 tests)
- NEW       tests/Feature/DocumentTrackingTest.php         (6 tests)
- NEW       tests/Feature/FileVersioningTest.php           (5 tests)
- NEW       tests/Feature/DuplicatePreventionTest.php      (3 tests)
- NEW       tests/Feature/BackupRestoreTest.php            (3 tests)
- REPLACES  README.md
- NEW       start-dts.bat, backup-dts.bat
+HOW TO COPY (merge, never replace folders):
+ Extract to Downloads\phase11b, copy app, database, resources, routes, tests into remitio-dts\
+ -> "Replace the files in the destination".
 
-NO MIGRATIONS in this phase.
+DELETE THIS FILE (no longer used):
+ resources\views\components\due-badge.blade.php
+
+NEW
+ database/migrations/2026_10_02_000001_workflow_v2_statuses.php    (in_review->for_review, filed->finalized, drops due_date, adds received_by)
+ database/migrations/2026_10_02_000002_create_notarial_entries_table.php  (moves existing notarial details into the register)
+ app/Models/NotarialEntry.php
+ app/Http/Controllers/NotarialEntryController.php
+ app/Policies/NotarialEntryPolicy.php
+ resources/views/notarial/index.blade.php, edit.blade.php
+ resources/views/documents/_notarial-box.blade.php
+ tests/Feature/NotarialRegisterTest.php
+
+REPLACED (see the full list in the zip)
+ Enums: DocumentStatus, MovementAction · Services: DocumentTracker, AttachmentService, BackupService
+ Models: Document, DocumentMovement · Requests: StoreDocumentMovementRequest, Store/UpdateDocumentRequest
+ Controllers: Document, DocumentMovement, DocumentAttachment, Dashboard, LegalCase, Report
+ Views: dashboard, documents/*, cases/show, search, reports/*, sidebar, movement-timeline
+ Seeder/factory: DemoDataSeeder, DocumentFactory · Tests: DocumentTrackingTest, FileVersioningTest
 
 AFTER COPYING
- 1. php.ini: make sure "extension=zip" has no ";" in front (needed for backups). Restart the server.
- 2. php artisan optimize:clear
- 3. php artisan route:list --path=admin/backups     (5 routes)
- 4. php artisan list dts                            (dts:backup, dts:create-admin)
- 5. Tests: see README section 6, then:  php artisan test
+ php artisan migrate
+ php artisan migrate:fresh --seed      (recommended: demo data rebuilt for the new 10-step flow)
+ npm run build
+ php artisan optimize:clear
+ php artisan test
+
+NOTE: backups made BEFORE this update can't be restored into this version (different tables).
+      Make a new backup after updating.

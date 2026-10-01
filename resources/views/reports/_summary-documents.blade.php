@@ -9,7 +9,6 @@
                 <th class="py-1 pr-2">Received</th>
                 <th class="py-1 pr-2">Status</th>
                 <th class="py-1 pr-2">With / Location</th>
-                <th class="py-1">Due</th>
             </tr>
         </thead>
         <tbody>
@@ -20,7 +19,6 @@
                     <td class="whitespace-nowrap py-1 pr-2">{{ $doc->date_received->format('M d, Y') }}</td>
                     <td class="whitespace-nowrap py-1 pr-2">{{ $doc->status->label() }}</td>
                     <td class="py-1 pr-2">{{ $doc->currentHolder?->name ?? ($doc->status->isFinal() ? 'Out of office' : '—') }}{{ $doc->physical_location ? ' · '.$doc->physical_location : '' }}</td>
-                    <td class="whitespace-nowrap py-1 {{ $doc->is_overdue ? 'font-semibold text-red-700' : '' }}">{{ $doc->due_date?->format('M d, Y') ?? '—' }}</td>
                 </tr>
             @endforeach
         </tbody>

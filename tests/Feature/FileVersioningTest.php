@@ -60,28 +60,19 @@ class FileVersioningTest extends TestCase
         $this->assertDatabaseCount('document_attachments', 0);
     }
 
-    public function test_only_an_administrator_can_mark_a_version_final(): void
+    public function test_the_separate_mark_final_button_is_gone(): void
     {
-        $staff = User::factory()->create();
-        $admin = User::factory()->admin()->create();
-        $document = Document::factory()->create();
-        $this->actingAs($staff)->post(route('documents.attachments.store', $document), ['attachments' => [$this->pdf('deed.pdf')]]);
-        $file = DocumentAttachment::firstOrFail();
-
-        $this->actingAs($staff)->patch(route('attachments.final', $file))->assertForbidden();
-        $this->actingAs($admin)->patch(route('attachments.final', $file))->assertSessionHas('success');
-
-        $this->assertTrue($file->fresh()->is_final);
+        // Workflow v2: the lawyer marks the final version by approving the document
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('attachments.final'));
     }
 
     public function test_staff_cannot_delete_a_final_version_even_if_they_uploaded_it(): void
     {
         $staff = User::factory()->create();
-        $admin = User::factory()->admin()->create();
         $document = Document::factory()->create();
         $this->actingAs($staff)->post(route('documents.attachments.store', $document), ['attachments' => [$this->pdf('deed.pdf')]]);
         $file = DocumentAttachment::firstOrFail();
-        $this->actingAs($admin)->patch(route('attachments.final', $file));
+        $file->update(['is_final' => true]); // as if the lawyer approved this version
 
         $this->actingAs($staff)->delete(route('attachments.destroy', $file))->assertForbidden();
         $this->assertDatabaseHas('document_attachments', ['id' => $file->id]);

@@ -28,7 +28,6 @@ class DocumentFactory extends Factory
             'current_holder_id' => null,
             'physical_location' => fake()->randomElement(DemoData::LOCATIONS),
             'date_received' => fake()->dateTimeBetween('-5 months', '-1 day'),
-            'due_date' => fake()->optional(0.5)->dateTimeBetween('-1 week', '+1 month'),
         ];
     }
 
