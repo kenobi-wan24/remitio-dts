@@ -9,7 +9,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DocumentAttachmentController extends Controller
@@ -18,33 +17,18 @@ class DocumentAttachmentController extends Controller
     {
     }
 
+    /**
+     * Files card upload = OTHER files (scans, supporting papers).
+     * New versions of the document's draft are uploaded only through Submit / Resubmit
+     * for review in Update Tracking, so every version is tied to a recorded step.
+     */
     public function store(Request $request, Document $document): RedirectResponse
     {
-        $request->validate([
-            ...AttachmentService::rules(required: true),
-            'version_of' => ['nullable', Rule::exists('document_attachments', 'id')->where('document_id', $document->id)],
-            'version_notes' => ['nullable', 'string', 'max:255'],
-        ], AttachmentService::messages());
+        $request->validate(AttachmentService::rules(required: true), AttachmentService::messages());
 
-        $versionOf = $request->filled('version_of') ? DocumentAttachment::find($request->input('version_of')) : null;
+        $created = $this->attachments->storeFiles($document, $request->file('attachments'), $request->user());
 
-        if ($versionOf && count($request->file('attachments')) > 1) {
-            return back()->withInput()->withErrors(['attachments' => 'Upload only one file when adding a new version.']);
-        }
-
-        $created = $this->attachments->storeFiles(
-            $document,
-            $request->file('attachments'),
-            $request->user(),
-            $versionOf,
-            $request->input('version_notes'),
-        );
-
-        $message = $versionOf
-            ? "Uploaded as version {$created[0]->version} of \"{$versionOf->original_name}\"."
-            : (count($created) === 1 ? '1 file uploaded.' : count($created).' files uploaded.');
-
-        return back()->with('success', $message);
+        return back()->with('success', count($created) === 1 ? '1 file uploaded.' : count($created).' files uploaded.');
     }
 
     /**

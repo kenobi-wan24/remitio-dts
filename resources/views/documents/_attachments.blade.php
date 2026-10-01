@@ -1,6 +1,7 @@
 {{--
-    Phase 8: files grouped by version.
-    Each group = one file and all its versions (v1, v2, v3...). One version can be FINAL.
+    Files grouped by version (v1, v2, v3...). One version can be FINAL (set when the lawyer approves).
+    Workflow v2: drafts and corrected versions are uploaded ONLY through Submit / Resubmit for review
+    in Update Tracking. This card's upload adds OTHER files (scans, supporting papers).
     Expects: $document (with attachments.uploader loaded)
 --}}
 @php
@@ -9,9 +10,9 @@
         ->map(fn ($files) => $files->sortByDesc('version')->values())
         ->sortByDesc(fn ($files) => $files->first()->created_at);
 
-    $versionOptions = $groups->mapWithKeys(fn ($files) => [
-        $files->first()->id => $files->first()->original_name.' (currently v'.$files->first()->version.')',
-    ]);
+    $draftingNow = in_array($document->status, [
+        \App\Enums\DocumentStatus::ForDrafting, \App\Enums\DocumentStatus::RevisionRequired,
+    ], true);
 @endphp
 
 <x-card title="Files & Versions ({{ $groups->count() }})">
@@ -51,30 +52,19 @@
         </ul>
     @endif
 
-    {{-- Upload --}}
-    <form method="POST" action="{{ route('documents.attachments.store', $document) }}" enctype="multipart/form-data"
-        class="space-y-3" x-data="{ mode: @js(old('version_of') ? 'version' : 'new') }">
+    {{-- Upload: other files only --}}
+    <form method="POST" action="{{ route('documents.attachments.store', $document) }}" enctype="multipart/form-data" class="space-y-3">
         @csrf
 
-        @if ($groups->isNotEmpty())
-            <div class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
-                <label class="inline-flex items-center gap-2">
-                    <input type="radio" value="new" x-model="mode" class="text-slate-800 focus:ring-slate-500"> New file(s)
-                </label>
-                <label class="inline-flex items-center gap-2">
-                    <input type="radio" value="version" x-model="mode" class="text-slate-800 focus:ring-slate-500"> New version of an existing file
-                </label>
-            </div>
-
-            <div x-show="mode === 'version'" x-cloak class="grid gap-3 sm:grid-cols-2">
-                <x-form.select name="version_of" label="Which file?" :options="$versionOptions" placeholder="Select file"
-                    x-bind:disabled="mode !== 'version'" x-bind:required="mode === 'version'" />
-                <x-form.input name="version_notes" label="What changed?" maxlength="255"
-                    placeholder="e.g. Corrected client name on page 2" x-bind:disabled="mode !== 'version'" />
+        @if ($draftingNow)
+            <div class="flex items-start gap-2 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-800">
+                <x-icon name="information-circle" class="h-4 w-4 shrink-0" />
+                <p>Uploading the draft or a corrected version? Use <strong>{{ $document->status === \App\Enums\DocumentStatus::RevisionRequired ? 'Resubmit for review' : 'Submit for review' }}</strong> in Update Tracking so it becomes the next version and goes to the lawyer.</p>
             </div>
         @endif
 
-        <x-file-input :label="$groups->isEmpty() ? 'Upload scanned copies or soft files' : null" />
+        <x-file-input label="Add other files (scans, supporting papers)"
+            hint="Not for drafts — draft versions are added through Update Tracking · PDF, Word, Excel, JPG or PNG · up to 10 MB each" />
         <div class="flex justify-end">
             <x-button size="sm" icon="plus">Upload</x-button>
         </div>

@@ -27,25 +27,26 @@ class FileVersioningTest extends TestCase
         return UploadedFile::fake()->createWithContent($name, self::PDF);
     }
 
-    public function test_a_new_upload_can_become_the_next_version_of_a_file(): void
+    public function test_the_files_card_adds_separate_files_not_versions(): void
     {
         $staff = User::factory()->create();
         $document = Document::factory()->create();
 
         $this->actingAs($staff)->post(route('documents.attachments.store', $document), ['attachments' => [$this->pdf('deed.pdf')]])
             ->assertSessionHasNoErrors();
-        $v1 = DocumentAttachment::firstOrFail();
+        $first = DocumentAttachment::firstOrFail();
 
+        // even if someone sends "version_of", the Files card only adds a NEW file (v1 of its own group)
         $this->actingAs($staff)->post(route('documents.attachments.store', $document), [
-            'attachments' => [$this->pdf('deed-corrected.pdf')],
-            'version_of' => $v1->id,
-            'version_notes' => 'Corrected page 1',
+            'attachments' => [$this->pdf('scanned-id.pdf')],
+            'version_of' => $first->id,
         ])->assertSessionHasNoErrors();
 
-        $v2 = DocumentAttachment::latest('id')->firstOrFail();
-        $this->assertSame(2, $v2->version);
-        $this->assertSame($v1->version_group_id, $v2->version_group_id);
-        Storage::disk('local')->assertExists($v2->path);
+        $second = DocumentAttachment::latest('id')->firstOrFail();
+        $this->assertSame(1, $second->version);
+        $this->assertNotSame($first->version_group_id, $second->version_group_id);
+        Storage::disk('local')->assertExists($second->path);
+        // (versions of the draft are tested in DocumentTrackingTest: Submit → v1, Resubmit → v2)
     }
 
     public function test_disallowed_file_types_are_rejected(): void
