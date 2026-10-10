@@ -10,9 +10,15 @@ use App\Models\User;
  */
 class NotarialEntryPolicy
 {
+    public function view(User $user, NotarialEntry $entry): bool
+    {
+        return (bool) $entry->document?->isVisibleTo($user);
+    }
+
+    /** A lawyer (notary) may correct an entry; only the administrator deletes one. */
     public function update(User $user, NotarialEntry $entry): bool
     {
-        return $user->isAdmin();
+        return $user->isLawyer();
     }
 
     public function delete(User $user, NotarialEntry $entry): bool

@@ -36,6 +36,21 @@
                             <x-form.select name="role" label="Role" :options="\App\Enums\UserRole::options()" :selected="$user->role" required />
                         </div>
                     </div>
+
+                    {{-- 11C: notary details (lawyers only) — printed on the Notarial Register's header --}}
+                    @if ($user->isLawyer())
+                        <div class="mt-6 border-t border-slate-200 pt-5">
+                            <p class="text-sm font-semibold text-slate-900">Notary Public Details</p>
+                            <p class="text-xs text-slate-500">Printed on the header of this lawyer's Notarial Register.</p>
+                            <div class="mt-3 grid gap-5 sm:grid-cols-2">
+                                <x-form.input name="notarial_commission_no" label="Notarial Commission No." :value="$user->notarial_commission_no" maxlength="60" placeholder="e.g. 028-2026" />
+                                <x-form.input name="commission_expires_on" type="date" label="Commission expires on" :value="$user->commission_expires_on" />
+                                <div class="sm:col-span-2">
+                                    <x-form.input name="notary_office_address" label="Office address" :value="$user->notary_office_address" maxlength="255" placeholder="e.g. Candelaria Street, Ecoland, Davao City" />
+                                </div>
+                            </div>
+                        </div>
+                    @endif
                     <div class="mt-5 flex justify-end">
                         <x-button icon="check-circle">Save Details</x-button>
                     </div>

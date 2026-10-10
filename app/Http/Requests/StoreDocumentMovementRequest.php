@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\MovementAction;
 use App\Enums\UserRole;
 use App\Models\Document;
 use App\Services\AttachmentService;
@@ -21,6 +22,8 @@ use Illuminate\Validation\Rule;
  *   archive             → location required
  *   receive back        → remarks required
  *   hand over           → person (not the current holder)
+ *   send out of office  → destination, purpose, carried by (R2); remarks if purpose is "Other"
+ *   returned to office  → optional: where it is kept now, brought back by
  */
 class StoreDocumentMovementRequest extends FormRequest
 {
@@ -42,7 +45,7 @@ class StoreDocumentMovementRequest extends FormRequest
 
         $hasFiles = $document->attachments()->exists();
         $lastMovementAt = $document->movements()->value('acted_at');
-        $activeLawyer = Rule::exists('users', 'id')->where('role', UserRole::Admin->value)->where('is_active', true);
+        $activeLawyer = Rule::exists('users', 'id')->whereIn('role', UserRole::lawyerValues())->where('is_active', true);
 
         return [
             'action' => ['required', Rule::in($allowed)],
@@ -72,14 +75,29 @@ class StoreDocumentMovementRequest extends FormRequest
                 Rule::exists('document_attachments', 'id')->where('document_id', $document->id),
             ],
 
-            'signed_by' => [Rule::requiredIf($action === 'signed'), 'nullable', Rule::exists('users', 'id')->where('role', UserRole::Admin->value)],
+            'signed_by' => [Rule::requiredIf($action === 'signed'), 'nullable', Rule::exists('users', 'id')->whereIn('role', UserRole::lawyerValues())],
 
             'received_by' => [Rule::requiredIf($action === 'released_to_client'), 'nullable', 'string', 'max:255'],
 
             'location' => [Rule::requiredIf($action === 'archived'), 'nullable', 'string', 'max:255'],
 
+            // 11C: correcting a wrong step — the right status, different from the current one
+            'corrected_status' => [
+                Rule::requiredIf($action === 'status_corrected'),
+                'nullable',
+                Rule::in(\App\Enums\DocumentStatus::values()),
+                Rule::when($action === 'status_corrected', [Rule::notIn([$document->status->value])]),
+            ],
+
+            // R2: physical copy leaving the office
+            'destination' => [Rule::requiredIf($action === 'sent_out'), 'nullable', 'string', 'max:255'],
+            'purpose' => [Rule::requiredIf($action === 'sent_out'), 'nullable', Rule::in(MovementAction::OUT_PURPOSES)],
+            'carried_by' => [Rule::requiredIf($action === 'sent_out'), 'nullable', 'string', 'max:255'],
+            'expected_back' => ['nullable', 'date', 'after_or_equal:today'],
+
             'remarks' => [
-                Rule::requiredIf(in_array($action, ['revision_required', 'received'], true)),
+                Rule::requiredIf(in_array($action, ['revision_required', 'received', 'status_corrected'], true)
+                    || ($action === 'sent_out' && $this->input('purpose') === 'Other')),
                 'nullable', 'string', 'max:1000',
             ],
 
@@ -99,6 +117,8 @@ class StoreDocumentMovementRequest extends FormRequest
             'signed_by' => 'signed by',
             'received_by' => 'received by',
             'acted_at' => 'date & time',
+            'carried_by' => 'carried by',
+            'expected_back' => 'expected return date',
         ];
     }
 
@@ -117,6 +137,12 @@ class StoreDocumentMovementRequest extends FormRequest
             'remarks.required' => 'Please add remarks for this step.',
             'acted_at.before_or_equal' => 'The date & time cannot be in the future.',
             'acted_at.after_or_equal' => 'The date & time cannot be earlier than the last recorded step.',
+            'corrected_status.required' => 'Choose the correct status.',
+            'destination.required' => 'Enter where the document is being brought (e.g. RTC Branch 12, Davao City).',
+            'purpose.required' => 'Choose why the document is leaving the office.',
+            'carried_by.required' => 'Enter who is carrying the document.',
+            'expected_back.after_or_equal' => 'The expected return date cannot be in the past.',
+            'corrected_status.not_in' => 'The document already has this status.',
             ...AttachmentService::messages(),
             'file.extensions' => 'Allowed file types: PDF, Word, Excel, JPG, PNG.',
             'file.mimetypes' => 'This file does not look like a real PDF, Word, Excel, JPG or PNG file.',

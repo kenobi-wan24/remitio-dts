@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -143,6 +144,18 @@ class Client extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /** 11C: valid government IDs, newest first. */
+    public function validIds(): HasMany
+    {
+        return $this->hasMany(ClientId::class)->latest('id');
+    }
+
+    /** 11C: documents where this client is one of the parties (e.g. the Vendee of a deed). */
+    public function partyDocuments(): BelongsToMany
+    {
+        return $this->belongsToMany(Document::class, 'document_parties')->withPivot('role', 'position')->withTimestamps();
     }
 
     // ── Activity log (Phase 9) ──────────────────────────────

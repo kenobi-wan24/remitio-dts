@@ -30,13 +30,19 @@ class DocumentController extends Controller
 
     public function index(Request $request): View
     {
-        $showTrashed = $request->input('view') === 'trash' && $request->user()->isAdmin();
+        $showTrashed = in_array($request->input('view'), ['deleted', 'trash'], true) && $request->user()->isAdmin();
 
         $filters = [
             'status' => in_array($request->input('status'), DocumentStatus::values(), true) ? $request->input('status') : null,
             'type' => is_numeric($request->input('type')) ? (int) $request->input('type') : null,
             'holder' => $request->input('holder'),
-            'sort' => in_array($request->input('sort'), ['newest', 'oldest'], true) ? $request->input('sort') : 'newest',
+            // R1/R2: in process vs completed (matches the dashboard), or out of the office right now
+            'show' => in_array($request->input('show'), ['in_process', 'completed', 'out', 'on_hold'], true) ? $request->input('show') : null,
+            // R4: "priority" sort; it is the default when looking at your own queue
+            'sort' => in_array($request->input('sort'), ['priority', 'newest', 'oldest'], true)
+                ? $request->input('sort')
+                : ($request->input('holder') === 'me' ? 'priority' : 'newest'),
+            'urgency' => in_array($request->input('urgency'), \App\Enums\Urgency::values(), true) ? $request->input('urgency') : null,
             // Notarial register lookup (Workflow v2: through the linked register entry)
             'notarial' => array_filter($request->only(['n_series', 'n_book', 'n_page', 'n_doc'])),
         ];
@@ -49,10 +55,16 @@ class DocumentController extends Controller
 
         // Base filters (everything except status)
         $base = Document::query()
+            ->visibleTo($request->user())   // R3
             ->when($showTrashed, fn ($q) => $q->onlyTrashed())
             ->search($request->input('q'))
             ->when($filters['type'], fn ($q, $type) => $q->where('document_type_id', $type))
             ->when($holderId, fn ($q, $id) => $q->heldBy($id))
+            ->when($filters['show'] === 'in_process', fn ($q) => $q->open())
+            ->when($filters['show'] === 'completed', fn ($q) => $q->whereIn('status', DocumentStatus::finalValues()))
+            ->when($filters['show'] === 'out', fn ($q) => $q->outOfOffice())
+            ->when($filters['show'] === 'on_hold', fn ($q) => $q->whereNotNull('on_hold_since'))
+            ->when($filters['urgency'], fn ($q, $u) => $q->where('urgency', $u))
             ->notarialLookup([
                 'series' => $filters['notarial']['n_series'] ?? null,
                 'book' => isset($filters['notarial']['n_book']) ? strtoupper(trim($filters['notarial']['n_book'])) : null,
@@ -79,6 +91,7 @@ class DocumentController extends Controller
             ->when($filters['status'], fn ($q, $status) => $q->where('status', $status));
 
         match ($filters['sort']) {
+            'priority' => $query->byPriority(),
             'oldest' => $query->orderBy('date_received')->orderBy('id'),
             default => $query->orderByDesc('date_received')->orderByDesc('id'),
         };
@@ -117,6 +130,8 @@ class DocumentController extends Controller
         $document = DB::transaction(function () use ($request, $user) {
             $document = Document::create([
                 ...$request->documentData(),
+                // R4: a new document starts with its case's urgency (lawyers can change it afterwards)
+                'urgency' => LegalCase::find($request->documentData()['legal_case_id'] ?? null)?->urgency ?? \App\Enums\Urgency::Normal,
                 'status' => DocumentStatus::Received,
                 'created_by' => $user->id,
             ]);
@@ -133,6 +148,9 @@ class DocumentController extends Controller
             ]);
 
             $this->attachments->storeFiles($document, $request->file('attachments', []), $user);
+
+            // 11C: parties to the document (Agreements and Deeds need 2+)
+            $document->parties()->sync($request->partiesData());
 
             return $document;
         });
@@ -155,6 +173,9 @@ class DocumentController extends Controller
             'movements.fromUser:id,name',
             'movements.toUser:id,name',
             'notarialEntry.recorder:id,name',
+            'notarialEntry.notary:id,name',
+            'parties.validIds',
+            'client.validIds',
         ]);
 
         $tracker = app(DocumentTracker::class);
@@ -177,6 +198,13 @@ class DocumentController extends Controller
             'defaultLawyerId' => $tracker->defaultLawyerId($document),
             'approvable' => $approvable,
             'keyDates' => $document->keyDates(),
+            // 11C: notarial entry pre-fill — the principals are the parties (or the client), with their latest valid ID
+            'principalsPrefill' => ($document->parties->isNotEmpty() ? $document->parties : collect([$document->client])->filter())
+                ->map(fn (Client $c) => [
+                    'name' => $c->display_name,
+                    'address' => (string) $c->address,
+                    'evidence' => (string) $c->validIds->first()?->label,
+                ])->values()->all(),
         ]);
     }
 
@@ -187,7 +215,10 @@ class DocumentController extends Controller
 
     public function update(UpdateDocumentRequest $request, Document $document): RedirectResponse
     {
-        $document->update($request->documentData());
+        DB::transaction(function () use ($request, $document) {
+            $document->update($request->documentData());
+            $document->parties()->sync($request->partiesData()); // 11C
+        });
 
         return redirect()
             ->route('documents.show', $document)
@@ -202,7 +233,7 @@ class DocumentController extends Controller
 
         return redirect()
             ->route('documents.index')
-            ->with('success', "Document {$document->tracking_code} was moved to trash.");
+            ->with('success', "Document {$document->tracking_code} was moved to Removed entries.");
     }
 
     public function restore(Document $document): RedirectResponse
@@ -225,6 +256,7 @@ class DocumentController extends Controller
         $received = Carbon::parse($data['date_received']);
 
         return Document::query()
+            ->visibleTo(auth()->user())   // R3
             ->where('client_id', $data['client_id'])
             ->where('document_type_id', $data['document_type_id'])
             ->where('title', $data['title'])
@@ -258,6 +290,7 @@ class DocumentController extends Controller
 
         // { client_id: [ {id, label}, ... ] } — powers the dependent "Case" dropdown
         $casesByClient = LegalCase::query()
+            ->visibleTo(auth()->user())   // R3: only cases you may see
             ->orderByDesc('date_opened')
             ->get(['id', 'client_id', 'case_code', 'title', 'status'])
             ->groupBy('client_id')
@@ -269,6 +302,12 @@ class DocumentController extends Controller
 
         $users = User::active()->orderBy('name')->pluck('name', 'id');
 
-        return compact('documentTypes', 'clients', 'casesByClient', 'users');
+        // 11C: how many parties each document type needs, and the parties already on this document
+        $minPartiesByType = DocumentType::query()->pluck('min_parties', 'id');
+        $initialParties = $document
+            ? $document->parties->map(fn (Client $p) => ['client_id' => (string) $p->id, 'role' => (string) $p->pivot->role])->values()->all()
+            : [];
+
+        return compact('documentTypes', 'clients', 'casesByClient', 'users', 'minPartiesByType', 'initialParties');
     }
 }

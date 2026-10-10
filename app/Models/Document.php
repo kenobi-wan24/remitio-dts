@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -20,6 +21,9 @@ class Document extends Model
     /** @use HasFactory<\Database\Factories\DocumentFactory> */
     use GeneratesReferenceCode, HasFactory, LogsActivity, SoftDeletes;
 
+    /** New records start Normal (so the attribute is set before the first save/refresh). */
+    protected $attributes = ['urgency' => 'normal'];
+
     protected $fillable = [
         'title',
         'description',
@@ -27,8 +31,18 @@ class Document extends Model
         'client_id',
         'legal_case_id',
         'status',
+        'is_confidential',
+        'urgency',
+        'deadline',
+        'on_hold_since',
+        'on_hold_reason',
         'current_holder_id',
         'physical_location',
+        'out_since',
+        'out_destination',
+        'out_purpose',
+        'out_carried_by',
+        'out_expected_back',
         'date_received',
         'created_by',
     ];
@@ -38,6 +52,12 @@ class Document extends Model
         return [
             'status' => DocumentStatus::class,
             'date_received' => 'date',
+            'out_since' => 'datetime',
+            'is_confidential' => 'boolean',
+            'out_expected_back' => 'date',
+            'urgency' => \App\Enums\Urgency::class,
+            'deadline' => 'date',
+            'on_hold_since' => 'datetime',
         ];
     }
 
@@ -87,7 +107,145 @@ class Document extends Model
         ];
     }
 
+    /** R2: is the physical copy outside the office right now? */
+    public function isOutOfOffice(): bool
+    {
+        return $this->out_since !== null;
+    }
+
+    /** R2: out of office past the expected return date. */
+    public function isOutOverdue(): bool
+    {
+        return $this->isOutOfOffice() && (bool) $this->out_expected_back?->lt(today());
+    }
+
     // ── Scopes ──────────────────────────────────────────────
+
+    /**
+     * Adds `last_moved_at` = time of the latest tracking step (how long it has been waiting).
+     * Uses the history, not updated_at, so editing a title doesn't reset the waiting time.
+     */
+    public function scopeWithLastMovedAt(Builder $query): Builder
+    {
+        return $query->withMax('movements as last_moved_at', 'acted_at');
+    }
+
+    /** Waiting since: the latest tracking step (falls back to when it was recorded). */
+    public function waitingSince(): \Illuminate\Support\Carbon
+    {
+        return $this->last_moved_at ? \Illuminate\Support\Carbon::parse($this->last_moved_at) : $this->created_at;
+    }
+
+    /**
+     * R3 — documents ASSIGNED to a user: they hold it now, recorded it, handled it in the
+     * tracking history, or are the handling lawyer of its case.
+     */
+    public function scopeAssignedTo(Builder $query, User|int $user): Builder
+    {
+        $id = $user instanceof User ? $user->id : $user;
+
+        return $query->where(fn (Builder $q) => $q
+            ->where('documents.current_holder_id', $id)
+            ->orWhere('documents.created_by', $id)
+            ->orWhereIn('documents.id', DocumentMovement::query()
+                ->select('document_id')
+                ->where(fn ($m) => $m->where('acted_by', $id)->orWhere('to_user_id', $id)->orWhere('from_user_id', $id)))
+            ->orWhereIn('documents.legal_case_id', LegalCase::withTrashed()->select('id')->where('handling_attorney_id', $id)));
+    }
+
+    /**
+     * R3 — the documents this user may see.
+     *   Administrator: all.
+     *   Others: documents not marked confidential (and not in a confidential case) in "open" mode,
+     *   plus documents assigned to them.
+     */
+    public function scopeVisibleTo(Builder $query, ?User $user): Builder
+    {
+        if ($user?->isAdmin()) {
+            return $query;
+        }
+
+        $id = $user?->id ?? 0;
+
+        return $query->where(function (Builder $q) use ($id) {
+            if (config('dts.access_mode') !== 'assigned') {
+                $q->where(fn (Builder $open) => $open
+                    ->where('documents.is_confidential', false)
+                    ->where(fn (Builder $c) => $c
+                        ->whereNull('documents.legal_case_id')
+                        ->orWhereIn('documents.legal_case_id', LegalCase::withTrashed()->select('id')->where('is_confidential', false))));
+            }
+
+            $q->orWhere(fn (Builder $mine) => $mine->assignedTo($id));
+        });
+    }
+
+    public function isVisibleTo(?User $user): bool
+    {
+        return $user?->isAdmin() || static::withTrashed()->whereKey($this->getKey())->visibleTo($user)->exists();
+    }
+
+    // ── R4: urgency & priority ─────────────────────────────
+
+    public function isOnHold(): bool
+    {
+        return $this->on_hold_since !== null;
+    }
+
+    /** The deadline, only when deadlines are turned on (DTS_DEADLINES=true). */
+    public function activeDeadline(): ?\Illuminate\Support\Carbon
+    {
+        return config('dts.deadlines') ? $this->deadline : null;
+    }
+
+    public function isOverdue(): bool
+    {
+        return (bool) $this->activeDeadline()?->lt(today()) && ! $this->status->isFinal();
+    }
+
+    /** Which priority group this document falls in (rules on PriorityGroup). */
+    public function priorityGroup(): \App\Enums\PriorityGroup
+    {
+        $deadline = $this->activeDeadline();
+
+        return match (true) {
+            $this->isOnHold() => \App\Enums\PriorityGroup::OnHold,
+            $this->urgency === \App\Enums\Urgency::Critical,
+            $deadline !== null && $deadline->lte(today()) => \App\Enums\PriorityGroup::Immediate,
+            $deadline !== null && $deadline->lte(today()->addDays(\App\Enums\PriorityGroup::DUE_SOON_DAYS)) => \App\Enums\PriorityGroup::DueSoon,
+            $this->urgency === \App\Enums\Urgency::High => \App\Enums\PriorityGroup::High,
+            default => \App\Enums\PriorityGroup::Routine,
+        };
+    }
+
+    /**
+     * Sorts by priority: not on hold first → higher urgency → earlier deadline (if on) → waiting longest.
+     * Adds `last_moved_at`.
+     */
+    public function scopeByPriority(Builder $query): Builder
+    {
+        $query->withLastMovedAt()
+            ->orderByRaw('CASE WHEN documents.on_hold_since IS NULL THEN 0 ELSE 1 END')
+            ->orderByRaw(\App\Enums\Urgency::rankSql('documents.urgency'));
+
+        if (config('dts.deadlines')) {
+            $query->orderByRaw('CASE WHEN documents.deadline IS NULL THEN 1 ELSE 0 END')->orderBy('documents.deadline');
+        }
+
+        return $query->orderBy('last_moved_at')->orderBy('documents.id');
+    }
+
+    /** Confidential itself, or because its case is. */
+    public function isConfidential(): bool
+    {
+        return $this->is_confidential || (bool) $this->legalCase?->is_confidential;
+    }
+
+    /** R2: physical copy currently outside the office. */
+    public function scopeOutOfOffice(Builder $query): Builder
+    {
+        return $query->whereNotNull('out_since');
+    }
 
     /** Still being worked on in the office (not released/archived). */
     public function scopeOpen(Builder $query): Builder
@@ -113,6 +271,7 @@ class Document extends Model
                 ->orWhere('title', 'like', $like)
                 ->orWhere('physical_location', 'like', $like)
                 ->orWhereHas('client', fn (Builder $client) => $client->search($term))
+                ->orWhereHas('parties', fn (Builder $party) => $party->search($term))
                 ->orWhereHas('legalCase', fn (Builder $case) => $case
                     ->where('case_code', 'like', $like)
                     ->orWhere('docket_number', 'like', $like));
@@ -172,6 +331,15 @@ class Document extends Model
     public function attachments(): HasMany
     {
         return $this->hasMany(DocumentAttachment::class)->latest();
+    }
+
+    /** 11C: the parties to the document (each a client), in order. */
+    public function parties(): BelongsToMany
+    {
+        return $this->belongsToMany(Client::class, 'document_parties')
+            ->withPivot('role', 'position')
+            ->withTimestamps()
+            ->orderByPivot('position');
     }
 
     /** Workflow v2: the Notarial Register entry for this document (if notarized). */

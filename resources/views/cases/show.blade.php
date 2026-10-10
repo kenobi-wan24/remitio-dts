@@ -5,7 +5,7 @@
             @can('delete', $case)
                 <x-confirm-delete :action="route('cases.destroy', $case)"
                     title="Delete case {{ $case->case_code }}?"
-                    message="The case will be moved to trash. This is only allowed if it has no documents. To end a matter, set its status to Closed instead." />
+                    message="The case will be moved to Removed entries. This is only allowed if it has no documents. To end a matter, set its status to Closed instead." />
             @endcan
         </x-slot>
     </x-page-header>
@@ -14,6 +14,8 @@
         <span class="font-mono text-slate-600">{{ $case->case_code }}</span>
         <x-status-badge :status="$case->status" />
         <x-status-badge color="gray" :label="$case->case_type->label()" />
+        @if ($case->is_confidential) <x-confidential-badge /> @endif
+        @if ($case->urgency !== \App\Enums\Urgency::Normal) <x-status-badge :status="$case->urgency" :label="$case->urgency->label().' urgency'" /> @endif
         @if ($case->docket_number)
             <span class="text-slate-500">· {{ $case->docket_number }}</span>
         @endif
@@ -121,7 +123,10 @@
                                             <p class="text-slate-900">{{ $document->title }}</p>
                                             <p class="text-xs text-slate-500">{{ $document->documentType?->name }} · received {{ $document->date_received->format('M d, Y') }}</p>
                                         </td>
-                                        <td class="px-5 py-3"><x-status-badge :status="$document->status" /></td>
+                                        <td class="px-5 py-3"><x-status-badge :status="$document->status" />
+                                            @if ($document->urgency !== \App\Enums\Urgency::Normal) <x-status-badge :status="$document->urgency" class="ml-1" /> @endif
+                                            @if ($document->isOnHold()) <x-status-badge color="purple" label="On hold" class="ml-1" /> @endif
+                                        </td>
                                         <td class="whitespace-nowrap px-5 py-3 text-slate-600">{{ $document->currentHolder?->name ?? '—' }}</td>
                                     </tr>
                                 @endforeach

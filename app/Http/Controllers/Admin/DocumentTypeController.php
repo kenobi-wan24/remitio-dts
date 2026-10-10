@@ -73,6 +73,7 @@ class DocumentTypeController extends Controller
         return [
             'name' => ['required', 'string', 'max:100', Rule::unique('document_types', 'name')->ignore($type)],
             'description' => ['nullable', 'string', 'max:255'],
+            'min_parties' => ['required', 'integer', 'min:1', 'max:10'], // 11C: Agreements and Deeds = 2
         ];
     }
 }

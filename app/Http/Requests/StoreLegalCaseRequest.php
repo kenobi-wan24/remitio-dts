@@ -23,7 +23,9 @@ class StoreLegalCaseRequest extends FormRequest
             'case_type' => ['required', Rule::enum(CaseType::class)],
             'docket_number' => ['nullable', 'string', 'max:50'],
             'court_or_venue' => ['nullable', 'string', 'max:255'],
-            'handling_attorney_id' => ['nullable', Rule::exists('users', 'id')->where('role', UserRole::Admin->value)],
+            'is_confidential' => ['nullable', 'boolean'], // R3: applied only for lawyers (see caseData)
+            'urgency' => ['nullable', Rule::enum(\App\Enums\Urgency::class)], // R4: lawyers only (see caseData)
+            'handling_attorney_id' => ['nullable', Rule::exists('users', 'id')->whereIn('role', UserRole::lawyerValues())],
             'status' => ['required', Rule::enum(CaseStatus::class)],
             'date_opened' => ['required', 'date', 'before_or_equal:today'],
             'date_closed' => ['nullable', 'date', 'after_or_equal:date_opened', 'before_or_equal:today'],
@@ -51,6 +53,15 @@ class StoreLegalCaseRequest extends FormRequest
     public function caseData(): array
     {
         $data = $this->validated();
+
+        // R3: only lawyers decide confidentiality; for staff the current value is left untouched
+        unset($data['is_confidential'], $data['urgency']);
+        if ($this->user()->isLawyer()) {
+            $data['is_confidential'] = $this->boolean('is_confidential');
+            if ($this->filled('urgency')) {
+                $data['urgency'] = $this->input('urgency');
+            }
+        }
 
         if (! CaseType::from($data['case_type'])->isLitigated()) {
             $data['docket_number'] = null;

@@ -32,6 +32,7 @@
                 <p class="px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Administration</p>
                 <div class="mt-2 space-y-1">
                     <x-sidebar-link :href="route('admin.users.index')" :active="request()->routeIs('admin.users.*')" icon="user-circle">Users</x-sidebar-link>
+                    <x-sidebar-link :href="route('admin.permissions')" :active="request()->routeIs('admin.permissions')" icon="lock-closed">Roles &amp; Permissions</x-sidebar-link>
                     <x-sidebar-link :href="route('admin.document-types.index')" :active="request()->routeIs('admin.document-types.*')" icon="tag">Document Types</x-sidebar-link>
                     <x-sidebar-link :href="route('admin.activity-logs.index')" :active="request()->routeIs('admin.activity-logs.*')" icon="clock">Activity Log</x-sidebar-link>
                     <x-sidebar-link :href="route('admin.backups.index')" :active="request()->routeIs('admin.backups.*')" icon="archive-box">Backup &amp; Restore</x-sidebar-link>

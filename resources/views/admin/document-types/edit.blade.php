@@ -8,6 +8,8 @@
             <div class="space-y-4">
                 <x-form.input name="name" label="Name" :value="$type->name" required maxlength="100" />
                 <x-form.input name="description" label="Description" :value="$type->description" maxlength="255" />
+                <x-form.input name="min_parties" type="number" label="Minimum parties" :value="$type->min_parties" min="1" max="10" required
+                    hint="2 for agreements and deeds (both parties must be recorded)." />
             </div>
         </x-card>
         <div class="mt-6 flex justify-end gap-2">

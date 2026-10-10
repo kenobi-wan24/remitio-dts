@@ -126,6 +126,6 @@ class UserController extends Controller
     private function isLastActiveAdmin(User $user): bool
     {
         return $user->isAdmin()
-            && User::attorneys()->active()->whereKeyNot($user->id)->doesntExist();
+            && User::where('role', UserRole::Admin->value)->active()->whereKeyNot($user->id)->doesntExist();
     }
 }

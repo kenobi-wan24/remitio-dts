@@ -41,6 +41,7 @@ class ReportController extends Controller
                 ->get(['id', 'client_code', 'client_type', 'first_name', 'last_name', 'company_name'])
                 ->mapWithKeys(fn (Client $c) => [$c->id => "{$c->display_name} · {$c->client_code}"]),
             'seriesOptions' => $series->isEmpty() ? collect([now()->year]) : $series,
+            'lawyers' => User::attorneys()->orderBy('name')->pluck('name', 'id'),
         ]);
     }
 
@@ -55,6 +56,7 @@ class ReportController extends Controller
         $due = $request->input('due') === 'open' ? 'open' : null; // "In process only"
 
         $query = Document::query()
+            ->visibleTo($request->user())   // R3
             ->with([
                 'documentType:id,name',
                 'client' => fn ($q) => $q->withTrashed(),
@@ -77,11 +79,13 @@ class ReportController extends Controller
         if ($request->input('format') === 'csv') {
             return $this->csv('documents-report', [
                 'Tracking Code', 'Date Received', 'Title', 'Type', 'Client', 'Case', 'Status', 'With', 'Location',
-                'Notarial Reference',
+                'Notarial Reference', 'Urgency', 'On Hold', ...(config('dts.deadlines') ? ['Deadline'] : []),
             ], $documents->map(fn (Document $d) => [
                 $d->tracking_code, $d->date_received->toDateString(), $d->title, $d->documentType?->name,
                 $d->client?->display_name, $d->legalCase?->case_code, $d->status->label(), $d->currentHolder?->name,
                 $d->physical_location, $d->notarial_reference,
+                $d->urgency->label(), $d->isOnHold() ? 'Yes — '.$d->on_hold_reason : 'No',
+                ...(config('dts.deadlines') ? [$d->deadline?->toDateString()] : []),
             ]));
         }
 
@@ -109,6 +113,7 @@ class ReportController extends Controller
         $actor = is_numeric($request->input('actor')) ? (int) $request->input('actor') : null;
 
         $query = DocumentMovement::query()
+            ->whereIn('document_id', Document::withTrashed()->visibleTo($request->user())->select('id'))   // R3
             ->with([
                 'document' => fn ($q) => $q->withTrashed()->select('id', 'tracking_code', 'title', 'deleted_at'),
                 'actor:id,name', 'fromUser:id,name', 'toUser:id,name',
@@ -156,11 +161,16 @@ class ReportController extends Controller
         $month = in_array((int) $request->input('month'), range(1, 12), true) ? (int) $request->input('month') : null;
         $book = trim((string) $request->input('book')) ?: null;
 
-        // Workflow v2: read from the Notarial Register; month = month the entry was recorded
+        // 11C: one notary's register (each notary keeps their own book)
+        $notary = User::find($request->input('notary'))
+            ?? User::attorneys()->whereIn('id', NotarialEntry::select('notary_id'))->orderBy('name')->first()
+            ?? User::attorneys()->orderBy('name')->first();
+
         $entries = NotarialEntry::query()
             ->with(['document' => fn ($q) => $q->with(['documentType:id,name', 'client' => fn ($c) => $c->withTrashed()])])
+            ->where('notary_id', $notary?->id)
             ->where('series', $series)
-            ->when($month, fn ($q) => $q->whereMonth('created_at', $month))
+            ->when($month, fn ($q) => $q->whereMonth('notarized_on', $month))
             ->when($book, fn ($q) => $q->where('book_no', strtoupper($book)))
             ->orderBy('book_no')
             ->orderBy('page_no')
@@ -170,19 +180,39 @@ class ReportController extends Controller
 
         if ($request->input('format') === 'csv') {
             return $this->csv("notarial-register-{$series}", [
-                'Doc. No.', 'Page No.', 'Book No.', 'Series', 'Date Recorded', 'Instrument', 'Type', 'Principal / Client', 'Tracking Code',
+                'Doc. No.', 'Page No.', 'Book No.', 'Series', 'Date Notarized', 'Type of Act', 'Instrument',
+                'Principals (name, address, evidence of identity)', 'Witnesses', 'Tracking Code',
             ], $entries->map(fn (NotarialEntry $e) => [
-                $e->doc_no, $e->page_no, $e->book_no, $e->series, $e->created_at->toDateString(),
-                $e->document?->title, $e->document?->documentType?->name, $e->document?->client?->display_name, $e->document?->tracking_code,
+                $e->doc_no, $e->page_no, $e->book_no, $e->series, $e->notarized_on?->toDateString(), $e->act_type?->label(),
+                $e->document?->title,
+                collect($e->principals ?? [])->map(fn ($p) => trim("{$p['name']}, {$p['address']}, {$p['evidence']}", ', '))->implode(' | '),
+                collect($e->witnesses ?? [])->map(fn ($w) => trim("{$w['name']}, {$w['address']}", ', '))->implode(' | '),
+                $e->document?->tracking_code,
             ]));
         }
 
+        // The book's certification: "(n) instruments were acknowledged and (n) sworn to before me", per week
+        $weekly = $entries->filter(fn ($e) => $e->notarized_on)
+            ->groupBy(fn ($e) => $e->notarized_on->copy()->startOfWeek()->toDateString())
+            ->sortKeys()
+            ->map(fn ($group, $start) => [
+                'from' => Carbon::parse($start),
+                'to' => Carbon::parse($start)->endOfWeek(),
+                'acknowledged' => $group->filter(fn ($e) => $e->act_type === \App\Enums\NotarialActType::Acknowledgment)->count(),
+                'sworn' => $group->filter(fn ($e) => $e->act_type?->isSworn())->count(),
+                'other' => $group->filter(fn ($e) => $e->act_type === \App\Enums\NotarialActType::CopyCertification || ! $e->act_type)->count(),
+            ]);
+
         return view('reports.notarial', [
             'entries' => $entries,
+            'pages' => $entries->groupBy(fn ($e) => $e->book_no.'|'.$e->page_no),
             'series' => $series,
+            'notary' => $notary,
+            'weekly' => $weekly,
             'filters' => array_filter([
+                'Notary' => $notary?->name,
                 'Series' => (string) $series,
-                'Month' => $month ? Carbon::create($series, $month, 1)->format('F') : 'All months',
+                'Month notarized' => $month ? Carbon::create($series, $month, 1)->format('F') : 'All months',
                 'Book No.' => $book ? strtoupper($book) : 'All books',
             ]),
         ]);
@@ -196,14 +226,19 @@ class ReportController extends Controller
 
         $client = Client::withTrashed()->findOrFail($request->input('client_id'));
 
+        $user = $request->user();
+
         $cases = $client->cases()
+            ->visibleTo($user)   // R3
             ->with(['attorney:id,name', 'documents' => fn ($q) => $q
+                ->visibleTo($user)
                 ->with(['documentType:id,name', 'currentHolder:id,name'])
                 ->orderBy('date_received')])
             ->orderBy('date_opened')
             ->get();
 
         $standalone = $client->documents()
+            ->visibleTo($user)
             ->whereNull('legal_case_id')
             ->with(['documentType:id,name', 'currentHolder:id,name'])
             ->orderBy('date_received')

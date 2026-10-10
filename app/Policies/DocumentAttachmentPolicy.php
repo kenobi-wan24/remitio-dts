@@ -7,6 +7,12 @@ use App\Models\User;
 
 class DocumentAttachmentPolicy
 {
+    /** R3: download only if you may see the document. */
+    public function view(User $user, DocumentAttachment $attachment): bool
+    {
+        return (bool) $attachment->document?->isVisibleTo($user);
+    }
+
     /**
      * Admins can delete any file.
      * Staff can delete only files THEY uploaded, and never a FINAL version.
@@ -20,9 +26,9 @@ class DocumentAttachmentPolicy
         return ! $attachment->is_final && (int) $attachment->uploaded_by === $user->id;
     }
 
-    /** Only the Lawyer/Owner (admin) approves which version is final. */
+    /** Only a lawyer approves which version is final. */
     public function markFinal(User $user, DocumentAttachment $attachment): bool
     {
-        return $user->isAdmin();
+        return $user->isLawyer();
     }
 }

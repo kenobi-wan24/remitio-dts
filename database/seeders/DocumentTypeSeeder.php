@@ -26,7 +26,11 @@ class DocumentTypeSeeder extends Seeder
         ];
 
         foreach ($types as $name => $description) {
-            DocumentType::updateOrCreate(['name' => $name], ['description' => $description, 'is_active' => true]);
+            DocumentType::updateOrCreate(['name' => $name], [
+                'description' => $description,
+                'is_active' => true,
+                'min_parties' => in_array($name, ['Contract / Agreement', 'Deed'], true) ? 2 : 1, // confirmed by the firm
+            ]);
         }
     }
 }

@@ -1,18 +1,18 @@
 @php use App\Enums\DocumentStatus; @endphp
 
-<x-app-layout :title="$showTrashed ? 'Deleted Documents' : 'Documents'">
-    <x-page-header :title="$showTrashed ? 'Deleted Documents' : 'Documents'"
-        subtitle="{{ number_format($documents->total()) }} {{ str('document')->plural($documents->total()) }} {{ $showTrashed ? 'in trash' : 'found' }}">
+<x-app-layout :title="$showTrashed ? 'Removed Documents' : 'Documents'">
+    <x-page-header :title="$showTrashed ? 'Removed Documents' : 'Documents'"
+        subtitle="{{ number_format($documents->total()) }} {{ str('document')->plural($documents->total()) }} {{ $showTrashed ? 'removed' : 'found' }}">
         <x-slot name="actions">
             @can('admin')
                 @if ($showTrashed)
                     <x-button variant="secondary" :href="route('documents.index')" icon="arrow-left">Back to Documents</x-button>
                 @else
-                    <x-button variant="ghost" :href="route('documents.index', ['view' => 'trash'])" icon="trash">Trash</x-button>
+                    <x-button variant="ghost" :href="route('documents.index', ['view' => 'deleted'])" icon="trash">Removed entries</x-button>
                 @endif
             @endcan
             @unless ($showTrashed)
-                <x-button variant="secondary" :href="route('documents.index', ['holder' => 'me'])" icon="inbox">With Me</x-button>
+                <x-button variant="secondary" :href="route('documents.index', ['holder' => 'me', 'show' => 'in_process'])" icon="inbox">Pending My Action</x-button>
                 <x-button :href="route('documents.create')" icon="plus">Record Document</x-button>
             @endunless
         </x-slot>
@@ -41,11 +41,11 @@
     @endunless
 
     {{-- Filters --}}
-    <form method="GET" action="{{ route('documents.index') }}" class="mb-4 grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-12 lg:items-end">
-        @if ($showTrashed) <input type="hidden" name="view" value="trash"> @endif
+    <form method="GET" action="{{ route('documents.index') }}" class="mb-4 grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-10 lg:items-end">
+        @if ($showTrashed) <input type="hidden" name="view" value="deleted"> @endif
         @if ($filters['status']) <input type="hidden" name="status" value="{{ $filters['status'] }}"> @endif
 
-        <div class="sm:col-span-2 lg:col-span-6">
+        <div class="sm:col-span-2 lg:col-span-10">
             <label for="q" class="block text-xs font-medium text-slate-500">Search</label>
             <div class="relative mt-1">
                 <x-icon name="magnifying-glass" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -56,8 +56,10 @@
 
         @foreach ([
             ['type', 'Type', ['' => 'All types'] + $documentTypes->all(), $filters['type']],
+            ['show', 'Show', ['' => 'All documents', 'in_process' => 'In process', 'completed' => 'Completed (released / archived)', 'out' => 'Out of office now', 'on_hold' => 'On hold'], $filters['show']],
+            ['urgency', 'Urgency', ['' => 'Any urgency'] + \App\Enums\Urgency::options(), $filters['urgency']],
             ['holder', 'With', ['' => 'Anyone', 'me' => 'Me'] + $users->all(), $filters['holder']],
-            ['sort', 'Sort by', ['newest' => 'Newest received', 'oldest' => 'Oldest received'], $filters['sort']],
+            ['sort', 'Sort by', ['priority' => 'Priority (urgency, then waiting longest)', 'newest' => 'Newest received', 'oldest' => 'Oldest received'], $filters['sort']],
         ] as [$field, $label, $options, $current])
             <div class="lg:col-span-2">
                 <label for="{{ $field }}" class="block text-xs font-medium text-slate-500">{{ $label }}</label>
@@ -70,7 +72,7 @@
         @endforeach
 
         {{-- Phase 8: notarial register lookup --}}
-        <div class="sm:col-span-2 lg:col-span-12" x-data="{ open: @js(! empty($filters['notarial'])) }">
+        <div class="sm:col-span-2 lg:col-span-10" x-data="{ open: @js(! empty($filters['notarial'])) }">
             <button type="button" x-on:click="open = ! open" class="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-800">
                 <x-icon name="chevron-right" class="h-3 w-3 transition" x-bind:class="open && 'rotate-90'" />
                 Notarial register lookup (Doc. / Page / Book / Series)
@@ -87,19 +89,19 @@
             </div>
         </div>
 
-        <div class="flex gap-2 sm:col-span-2 lg:col-span-12 lg:justify-end">
-            @if (request()->hasAny(['q', 'type', 'holder', 'sort', 'status', 'n_doc', 'n_page', 'n_book', 'n_series']))
-                <x-button variant="ghost" :href="route('documents.index', $showTrashed ? ['view' => 'trash'] : [])">Reset</x-button>
+        <div class="flex gap-2 sm:col-span-2 lg:col-span-10 lg:justify-end">
+            @if (request()->hasAny(['q', 'type', 'holder', 'show', 'urgency', 'sort', 'status', 'n_doc', 'n_page', 'n_book', 'n_series']))
+                <x-button variant="ghost" :href="route('documents.index', $showTrashed ? ['view' => 'deleted'] : [])">Reset</x-button>
             @endif
             <x-button>Apply Filters</x-button>
         </div>
     </form>
 
     @if ($documents->isEmpty())
-        @if (request()->hasAny(['q', 'type', 'holder', 'status', 'n_doc', 'n_page', 'n_book', 'n_series']))
+        @if (request()->hasAny(['q', 'type', 'holder', 'show', 'urgency', 'status', 'n_doc', 'n_page', 'n_book', 'n_series']))
             <x-empty-state icon="magnifying-glass" title="No matching documents" message="Try another search term or clear the filters." />
         @elseif ($showTrashed)
-            <x-empty-state icon="trash" title="Trash is empty" message="Deleted documents will appear here and can be restored." />
+            <x-empty-state icon="trash" title="No removed entries" message="Removed documents will appear here and can be restored." />
         @else
             <x-empty-state icon="document-text" title="No documents yet" message="Record the first document received by the office.">
                 <x-button :href="route('documents.create')" icon="plus">Record Document</x-button>
@@ -130,7 +132,10 @@
                                     @endif
                                 </td>
                                 <td class="max-w-xs px-5 py-3">
-                                    <p class="truncate font-medium text-slate-900" title="{{ $document->title }}">{{ $document->title }}</p>
+                                    <p class="flex items-center gap-1 truncate font-medium text-slate-900" title="{{ $document->title }}">
+                                        @if ($document->is_confidential) <x-icon name="lock-closed" class="h-3.5 w-3.5 shrink-0 text-amber-600" /> @endif
+                                        <span class="truncate">{{ $document->title }}</span>
+                                    </p>
                                     <p class="flex items-center gap-1 text-xs text-slate-500">
                                         {{ $document->documentType?->name }}
                                         @if ($document->attachments_count)
@@ -146,7 +151,27 @@
                                     <p class="truncate text-slate-700">{{ $document->client?->display_name ?? '—' }}</p>
                                     <p class="font-mono text-xs text-slate-500">{{ $document->legalCase?->case_code ?? 'No case' }}</p>
                                 </td>
-                                <td class="px-5 py-3"><x-status-badge :status="$document->status" /></td>
+                                <td class="px-5 py-3">
+                                    <x-status-badge :status="$document->status" />
+                                    @if ($document->urgency !== \App\Enums\Urgency::Normal)
+                                        <x-status-badge :status="$document->urgency" class="mt-1" />
+                                    @endif
+                                    @if ($document->isOnHold())
+                                        <span class="mt-1 flex items-center gap-1 text-xs font-medium text-purple-700" title="{{ $document->on_hold_reason }}">
+                                            <x-icon name="clock" class="h-3 w-3" /> On hold
+                                        </span>
+                                    @endif
+                                    @if (config('dts.deadlines') && $document->deadline)
+                                        <span @class(['mt-1 block text-xs', 'font-semibold text-red-600' => $document->isOverdue(), 'text-slate-500' => ! $document->isOverdue()])>
+                                            Due {{ $document->deadline->format('M d') }}
+                                        </span>
+                                    @endif
+                                    @if ($document->isOutOfOffice())
+                                        <span class="mt-1 flex items-center gap-1 text-xs font-medium text-amber-700" title="{{ $document->out_destination }}">
+                                            <x-icon name="truck" class="h-3 w-3" /> Out of office
+                                        </span>
+                                    @endif
+                                </td>
                                 <td class="whitespace-nowrap px-5 py-3 text-slate-600">{{ $document->currentHolder?->name ?? '—' }}</td>
                                 <td class="whitespace-nowrap px-5 py-3 text-right">
                                     @if ($showTrashed)

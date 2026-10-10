@@ -29,8 +29,9 @@ class SearchController extends Controller
             return $redirect;
         }
 
-        $documentQuery = Document::query()->search($q);
-        $caseQuery = LegalCase::query()->search($q);
+        // R3: results only include records this user may see
+        $documentQuery = Document::query()->visibleTo($request->user())->search($q);
+        $caseQuery = LegalCase::query()->visibleTo($request->user())->search($q);
         $clientQuery = Client::query()->search($q);
 
         return view('search', [
@@ -64,9 +65,9 @@ class SearchController extends Controller
         $code = strtoupper($q);
 
         return match (true) {
-            str_starts_with($code, 'DOC-') && ($doc = Document::where('tracking_code', $code)->first()) !== null
+            str_starts_with($code, 'DOC-') && ($doc = Document::visibleTo(auth()->user())->where('tracking_code', $code)->first()) !== null
                 => redirect()->route('documents.show', $doc),
-            str_starts_with($code, 'RR-') && ($case = LegalCase::where('case_code', $code)->first()) !== null
+            str_starts_with($code, 'RR-') && ($case = LegalCase::visibleTo(auth()->user())->where('case_code', $code)->first()) !== null
                 => redirect()->route('cases.show', $case),
             str_starts_with($code, 'CL-') && ($client = Client::where('client_code', $code)->first()) !== null
                 => redirect()->route('clients.show', $client),

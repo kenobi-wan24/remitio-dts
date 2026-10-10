@@ -1,4 +1,5 @@
-@props(['label', 'value', 'icon', 'color' => 'slate', 'href' => null])
+{{-- caption = the counting rule, shown under the number (R1: every KPI states what it counts) --}}
+@props(['label', 'value', 'icon', 'color' => 'slate', 'href' => null, 'caption' => null])
 
 @php
     $colors = [
@@ -13,12 +14,13 @@
 @endphp
 
 <{{ $tag }} @if ($href) href="{{ $href }}" @endif
-    {{ $attributes->merge(['class' => 'flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition'.($href ? ' hover:border-slate-300 hover:shadow-md' : '')]) }}>
+    {{ $attributes->merge(['class' => 'flex items-start gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition'.($href ? ' hover:border-slate-300 hover:shadow-md' : '')]) }}>
     <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg {{ $colors[$color] ?? $colors['slate'] }}">
         <x-icon :name="$icon" class="h-6 w-6" />
     </div>
     <div class="min-w-0">
         <p class="truncate text-sm text-slate-500">{{ $label }}</p>
         <p class="text-2xl font-bold text-slate-900">{{ number_format($value) }}</p>
+        @if ($caption) <p class="text-xs leading-snug text-slate-400">{{ $caption }}</p> @endif
     </div>
 </{{ $tag }}>

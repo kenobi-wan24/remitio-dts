@@ -21,7 +21,7 @@ class LegalCaseController extends Controller
 {
     public function index(Request $request): View
     {
-        $showTrashed = $request->input('view') === 'trash' && $request->user()->isAdmin();
+        $showTrashed = in_array($request->input('view'), ['deleted', 'trash'], true) && $request->user()->isAdmin();
 
         $filters = [
             'status' => in_array($request->input('status'), CaseStatus::values(), true) ? $request->input('status') : null,
@@ -38,6 +38,7 @@ class LegalCaseController extends Controller
 
         // Base filters (everything except status)
         $base = LegalCase::query()
+            ->visibleTo($request->user())   // R3
             ->when($showTrashed, fn ($q) => $q->onlyTrashed())
             ->search($request->input('q'))
             ->when($filters['type'], fn ($q, $type) => $q->where('case_type', $type))
@@ -53,7 +54,7 @@ class LegalCaseController extends Controller
 
         $query = $base
             ->with(['client' => fn ($q) => $q->withTrashed(), 'attorney:id,name'])
-            ->withCount('documents')
+            ->withCount(['documents' => fn ($q) => $q->visibleTo($request->user())])
             ->when($filters['status'], fn ($q, $status) => $q->where('status', $status));
 
         match ($filters['sort']) {
@@ -74,7 +75,7 @@ class LegalCaseController extends Controller
             'client_id' => $request->integer('client_id') ?: null,
             'status' => CaseStatus::Open,
             'date_opened' => today(),
-            'handling_attorney_id' => $request->user()->isAdmin() ? $request->user()->id : null,
+            'handling_attorney_id' => $request->user()->isLawyer() ? $request->user()->id : null,
         ]);
 
         return view('cases.create', ['case' => $case, ...$this->formOptions()]);
@@ -98,6 +99,7 @@ class LegalCaseController extends Controller
         ]);
 
         $documents = $legalCase->documents()
+            ->visibleTo(auth()->user())   // R3
             ->with(['documentType:id,name', 'currentHolder:id,name'])
             ->latest('date_received')
             ->latest('id')
@@ -138,7 +140,7 @@ class LegalCaseController extends Controller
 
         return redirect()
             ->route('cases.index')
-            ->with('success', "Case {$legalCase->case_code} was moved to trash.");
+            ->with('success', "Case {$legalCase->case_code} was moved to Removed entries.");
     }
 
     public function restore(LegalCase $legalCase): RedirectResponse

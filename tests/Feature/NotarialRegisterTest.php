@@ -13,9 +13,21 @@ class NotarialRegisterTest extends TestCase
 {
     use RefreshDatabase;
 
+    private ?User $notary = null;
+
     private function entry(array $overrides = []): array
     {
-        return ['doc_no' => 45, 'page_no' => 9, 'book_no' => 'iii', 'series' => 2026, ...$overrides];
+        $this->notary ??= User::factory()->admin()->create();
+
+        return [
+            'notary_id' => $this->notary->id,
+            'notarized_on' => today()->toDateString(),
+            'act_type' => 'acknowledgment',
+            'doc_no' => 45, 'page_no' => 9, 'book_no' => 'iii', 'series' => 2026,
+            'principals' => [['name' => 'Juan Dela Cruz', 'address' => 'Bajada, Davao City', 'evidence' => "Driver's License No. D12-88-013540"]],
+            'witnesses' => [['name' => 'Maria Santos', 'address' => 'Matina, Davao City'], ['name' => '', 'address' => '']],
+            ...$overrides,
+        ];
     }
 
     public function test_an_entry_can_be_added_once_the_document_is_approved_and_does_not_change_its_status(): void
@@ -29,6 +41,32 @@ class NotarialRegisterTest extends TestCase
         $this->assertSame('III', $entry->book_no, 'book number is stored in capitals');
         $this->assertSame('Doc. No. 45; Page No. 9; Book No. III; Series of 2026', $document->fresh()->notarial_reference);
         $this->assertSame(DocumentStatus::Approved, $document->fresh()->status);
+        $this->assertSame('Juan Dela Cruz', $entry->principals[0]['name']);
+        $this->assertCount(1, $entry->witnesses, 'empty witness rows are dropped');
+    }
+
+    public function test_each_notary_keeps_their_own_numbering(): void
+    {
+        $staff = User::factory()->create();
+        $otherNotary = User::factory()->admin()->create();
+        $first = Document::factory()->create(['status' => DocumentStatus::Approved]);
+        $second = Document::factory()->create(['status' => DocumentStatus::Approved]);
+
+        $this->actingAs($staff)->post(route('notarial.store', $first), $this->entry());
+        $this->actingAs($staff)->post(route('notarial.store', $second), $this->entry(['notary_id' => $otherNotary->id]))
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseCount('notarial_entries', 2);
+    }
+
+    public function test_an_entry_needs_the_book_columns(): void
+    {
+        $staff = User::factory()->create();
+        $document = Document::factory()->create(['status' => DocumentStatus::Approved]);
+
+        $this->actingAs($staff)->post(route('notarial.store', $document), $this->entry([
+            'act_type' => null, 'notarized_on' => null, 'principals' => [],
+        ]))->assertSessionHasErrors(['act_type', 'notarized_on', 'principals']);
     }
 
     public function test_an_entry_cannot_be_added_before_approval(): void

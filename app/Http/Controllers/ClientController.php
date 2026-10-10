@@ -6,6 +6,7 @@ use App\Enums\ClientType;
 use App\Http\Requests\StoreClientRequest;
 use App\Http\Requests\UpdateClientRequest;
 use App\Models\Client;
+use App\Models\Document;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,7 +17,7 @@ class ClientController extends Controller
 {
     public function index(Request $request): View
     {
-        $showTrashed = $request->input('view') === 'trash' && $request->user()->isAdmin();
+        $showTrashed = in_array($request->input('view'), ['deleted', 'trash'], true) && $request->user()->isAdmin();
         $type = in_array($request->input('type'), ClientType::values(), true) ? $request->input('type') : null;
         $sort = $request->input('sort', 'name');
         $engagement = in_array($request->input('engagement'), ['retainer', 'walk_in'], true) ? $request->input('engagement') : null;
@@ -62,22 +63,31 @@ class ClientController extends Controller
 
     public function show(Client $client): View
     {
-        $client->load('creator:id,name');
+        $client->load(['creator:id,name', 'validIds.creator:id,name']);
+
+        $user = auth()->user();
 
         $cases = $client->cases()
+            ->visibleTo($user)   // R3
             ->with('attorney:id,name')
-            ->withCount('documents')
+            ->withCount(['documents' => fn ($q) => $q->visibleTo($user)])
             ->latest('date_opened')
             ->get();
 
-        $documents = $client->documents()
+        // 11C: documents requested by this client OR where they are one of the parties
+        $documentsQuery = Document::query()
+            ->visibleTo($user)   // R3
+            ->where(fn ($q) => $q->where('client_id', $client->id)
+                ->orWhereHas('parties', fn ($p) => $p->whereKey($client->id)));
+
+        $documents = (clone $documentsQuery)
             ->with(['documentType:id,name', 'currentHolder:id,name', 'legalCase:id,case_code'])
             ->latest('date_received')
             ->latest('id')
             ->take(10)
             ->get();
 
-        $documentsCount = $client->documents()->count();
+        $documentsCount = $documentsQuery->count();
 
         return view('clients.show', compact('client', 'cases', 'documents', 'documentsCount'));
     }
@@ -106,7 +116,7 @@ class ClientController extends Controller
     {
         Gate::authorize('delete', $client);
 
-        if ($client->cases()->exists() || $client->documents()->exists()) {
+        if ($client->cases()->exists() || $client->documents()->exists() || $client->partyDocuments()->exists()) {
             return back()->with('error', 'This client still has cases or documents on record, so it cannot be deleted.');
         }
 
@@ -114,7 +124,7 @@ class ClientController extends Controller
 
         return redirect()
             ->route('clients.index')
-            ->with('success', "Client {$client->client_code} was moved to trash.");
+            ->with('success', "Client {$client->client_code} was moved to Removed entries.");
     }
 
     public function restore(Client $client): RedirectResponse

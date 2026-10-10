@@ -73,6 +73,31 @@ enum DocumentStatus: string
         };
     }
 
+    /**
+     * R1: what the person holding the document has to do next.
+     * Used to group the dashboard's "My Action Queue" (one group per action).
+     */
+    public function pendingAction(): string
+    {
+        return match ($this) {
+            self::Received => 'Awaiting Drafting',
+            self::ForDrafting => 'Drafting in Progress',
+            self::ForReview => 'Awaiting Review / Approval',
+            self::RevisionRequired => 'Revisions to Make',
+            self::Approved => 'Print & Send for Signature',
+            self::ForSignature => 'Pending Signature',
+            self::Signed => 'To Seal & Finalize',
+            self::Finalized => 'Ready for Release',
+            self::Released, self::Archived => 'Completed',
+        };
+    }
+
+    /** In-process statuses, in workflow order (everything except Released and Archived). */
+    public static function inProcessCases(): array
+    {
+        return array_values(array_filter(self::cases(), fn (self $s) => ! $s->isFinal()));
+    }
+
     /** Final = the document has left the office's active workflow. */
     public function isFinal(): bool
     {

@@ -82,8 +82,14 @@
 
         {{-- 3. Notarial --}}
         <x-card title="Notarial Register Listing">
-            <p class="-mt-1 mb-4 text-sm text-slate-500">Notarized documents in register order (Book → Page → Doc. No.). A reference list to help prepare the monthly report; it does not replace the official Notarial Register.</p>
+            <p class="-mt-1 mb-4 text-sm text-slate-500">One notary's register, printed in the book's layout (Book → Page → Doc. No.) with the weekly certification counts. Helps prepare the monthly report; it does not replace the official book.</p>
             <form method="GET" action="{{ route('reports.notarial') }}" target="_blank" class="grid gap-3 sm:grid-cols-3">
+                <div class="sm:col-span-3">
+                    <label class="{{ $label }}">Notary public</label>
+                    <select name="notary" class="{{ $input }}">
+                        @foreach ($lawyers as $id => $name) <option value="{{ $id }}">{{ $name }}</option> @endforeach
+                    </select>
+                </div>
                 <div>
                     <label class="{{ $label }}">Series (year)</label>
                     <select name="series" class="{{ $input }}">

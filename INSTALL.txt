@@ -1,43 +1,13 @@
-PHASE 11B — WORKFLOW v2 (core)
-==============================
-10 statuses + next-step buttons · lawyer-only approval · automatic holder · Hand over
-Notarial Register module (separate record) · due date removed · Key Dates panel
-"Waiting for me" dashboard · tests updated
+RENAME: "Deleted records" → "Removed entries"
+=============================================
+Install ON TOP of R4 (revision1-r4-priority.zip).
 
-BEFORE YOU START
- git status        -> must be clean (Phase 11A committed). If not, commit first.
- php artisan dts:backup     (optional safety copy; requires extension=zip)
-
-HOW TO COPY (merge, never replace folders):
- Extract to Downloads\phase11b, copy app, database, resources, routes, tests into remitio-dts\
- -> "Replace the files in the destination".
-
-DELETE THIS FILE (no longer used):
- resources\views\components\due-badge.blade.php
-
-NEW
- database/migrations/2026_10_02_000001_workflow_v2_statuses.php    (in_review->for_review, filed->finalized, drops due_date, adds received_by)
- database/migrations/2026_10_02_000002_create_notarial_entries_table.php  (moves existing notarial details into the register)
- app/Models/NotarialEntry.php
- app/Http/Controllers/NotarialEntryController.php
- app/Policies/NotarialEntryPolicy.php
- resources/views/notarial/index.blade.php, edit.blade.php
- resources/views/documents/_notarial-box.blade.php
- tests/Feature/NotarialRegisterTest.php
-
-REPLACED (see the full list in the zip)
- Enums: DocumentStatus, MovementAction · Services: DocumentTracker, AttachmentService, BackupService
- Models: Document, DocumentMovement · Requests: StoreDocumentMovementRequest, Store/UpdateDocumentRequest
- Controllers: Document, DocumentMovement, DocumentAttachment, Dashboard, LegalCase, Report
- Views: dashboard, documents/*, cases/show, search, reports/*, sidebar, movement-timeline
- Seeder/factory: DemoDataSeeder, DocumentFactory · Tests: DocumentTrackingTest, FileVersioningTest
-
-AFTER COPYING
- php artisan migrate
- php artisan migrate:fresh --seed      (recommended: demo data rebuilt for the new 10-step flow)
- npm run build
- php artisan optimize:clear
- php artisan test
-
-NOTE: backups made BEFORE this update can't be restored into this version (different tables).
-      Make a new backup after updating.
+1. MERGE-COPY everything in this zip into the project folder → "Replace the files".
+2. Run:
+      php artisan optimize:clear
+      php artisan test            (expect 100 tests, all passing)
+   No migration, no npm build needed.
+3. Check: Documents / Cases / Clients (as admin) → the button now says "Removed entries".
+4. git add -A
+   git commit -m "chore: rename Deleted records to Removed entries"
+   git push

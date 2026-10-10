@@ -7,6 +7,8 @@
                 @csrf
                 <x-form.input name="name" label="Name" required maxlength="100" placeholder="e.g. Compromise Agreement" />
                 <x-form.input name="description" label="Description" maxlength="255" placeholder="Optional" />
+                <x-form.input name="min_parties" type="number" label="Minimum parties" value="1" min="1" max="10" required
+                    hint="2 for agreements and deeds (both parties must be recorded)." />
                 <div class="flex justify-end">
                     <x-button icon="plus">Add Type</x-button>
                 </div>
@@ -19,6 +21,7 @@
                     <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                         <tr>
                             <th class="px-5 py-3">Type</th>
+                            <th class="px-5 py-3 text-center">Parties</th>
                             <th class="px-5 py-3 text-center">Documents</th>
                             <th class="px-5 py-3">Status</th>
                             <th class="px-5 py-3"><span class="sr-only">Actions</span></th>
@@ -31,6 +34,7 @@
                                     <p class="font-medium text-slate-900">{{ $type->name }}</p>
                                     <p class="text-xs text-slate-500">{{ $type->description ?? '—' }}</p>
                                 </td>
+                                <td class="px-5 py-3 text-center text-slate-700">{{ $type->min_parties }}+</td>
                                 <td class="px-5 py-3 text-center">
                                     @if ($type->documents_count)
                                         <a href="{{ route('documents.index', ['type' => $type->id]) }}" class="text-slate-700 hover:underline">{{ $type->documents_count }}</a>

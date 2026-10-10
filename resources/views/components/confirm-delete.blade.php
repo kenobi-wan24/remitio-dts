@@ -1,7 +1,7 @@
 {{--
     Delete button + confirmation modal in one:
         <x-confirm-delete :action="route('clients.destroy', $client)"
-            title="Delete this client?" message="Their record will be moved to trash." />
+            title="Delete this client?" message="Their record will be moved to Removed entries." />
 --}}
 @props([
     'action',

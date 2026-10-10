@@ -1,14 +1,14 @@
 @php use App\Enums\CaseStatus; use App\Enums\CaseType; @endphp
 
-<x-app-layout :title="$showTrashed ? 'Deleted Cases' : 'Cases'">
-    <x-page-header :title="$showTrashed ? 'Deleted Cases' : 'Cases'"
-        subtitle="{{ number_format($cases->total()) }} {{ str('case')->plural($cases->total()) }} {{ $showTrashed ? 'in trash' : 'found' }}">
+<x-app-layout :title="$showTrashed ? 'Removed Cases' : 'Cases'">
+    <x-page-header :title="$showTrashed ? 'Removed Cases' : 'Cases'"
+        subtitle="{{ number_format($cases->total()) }} {{ str('case')->plural($cases->total()) }} {{ $showTrashed ? 'removed' : 'found' }}">
         <x-slot name="actions">
             @can('admin')
                 @if ($showTrashed)
                     <x-button variant="secondary" :href="route('cases.index')" icon="arrow-left">Back to Cases</x-button>
                 @else
-                    <x-button variant="ghost" :href="route('cases.index', ['view' => 'trash'])" icon="trash">Trash</x-button>
+                    <x-button variant="ghost" :href="route('cases.index', ['view' => 'deleted'])" icon="trash">Removed entries</x-button>
                 @endif
             @endcan
             @unless ($showTrashed)
@@ -41,7 +41,7 @@
 
     {{-- Filters --}}
     <form method="GET" action="{{ route('cases.index') }}" class="mb-4 grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-12 lg:items-end">
-        @if ($showTrashed) <input type="hidden" name="view" value="trash"> @endif
+        @if ($showTrashed) <input type="hidden" name="view" value="deleted"> @endif
         @if ($filters['status']) <input type="hidden" name="status" value="{{ $filters['status'] }}"> @endif
 
         <div class="sm:col-span-2 lg:col-span-4">
@@ -88,7 +88,7 @@
         <div class="flex gap-2 lg:col-span-2">
             <x-button class="flex-1">Filter</x-button>
             @if (request()->hasAny(['q', 'type', 'attorney', 'sort', 'status']))
-                <x-button variant="ghost" :href="route('cases.index', $showTrashed ? ['view' => 'trash'] : [])">Reset</x-button>
+                <x-button variant="ghost" :href="route('cases.index', $showTrashed ? ['view' => 'deleted'] : [])">Reset</x-button>
             @endif
         </div>
     </form>
@@ -97,7 +97,7 @@
         @if (request()->hasAny(['q', 'type', 'attorney', 'status']))
             <x-empty-state icon="magnifying-glass" title="No matching cases" message="Try another search term or clear the filters." />
         @elseif ($showTrashed)
-            <x-empty-state icon="trash" title="Trash is empty" message="Deleted cases will appear here and can be restored." />
+            <x-empty-state icon="trash" title="No removed entries" message="Removed cases will appear here and can be restored." />
         @else
             <x-empty-state icon="briefcase" title="No cases yet" message="Open the first case for a client.">
                 <x-button :href="route('cases.create')" icon="plus">New Case</x-button>
@@ -130,6 +130,8 @@
                                     @endif
                                     <p class="text-xs text-slate-500">
                                         <span class="font-mono">{{ $case->case_code }}</span>
+                                        @if ($case->is_confidential) <x-icon name="lock-closed" class="inline h-3 w-3 text-amber-600" title="Confidential" /> @endif
+                                        @if ($case->urgency !== \App\Enums\Urgency::Normal) <x-status-badge :status="$case->urgency" /> @endif
                                         @if ($case->docket_number) · {{ $case->docket_number }} @endif
                                     </p>
                                 </td>

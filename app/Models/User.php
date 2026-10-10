@@ -22,6 +22,9 @@ class User extends Authenticatable
         'password',
         'role',
         'is_active',
+        'notarial_commission_no',
+        'commission_expires_on',
+        'notary_office_address',
     ];
 
     protected $hidden = [
@@ -36,6 +39,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'role' => UserRole::class,
             'is_active' => 'boolean',
+            'commission_expires_on' => 'date',
         ];
     }
 
@@ -44,6 +48,12 @@ class User extends Authenticatable
     public function isAdmin(): bool
     {
         return $this->role === UserRole::Admin;
+    }
+
+    /** R3: lawyer duties (approve, revise, sign, notarize, mark confidential). Administrator = the Lawyer/Owner. */
+    public function isLawyer(): bool
+    {
+        return in_array($this->role, [UserRole::Admin, UserRole::Lawyer], true);
     }
 
     public function isStaff(): bool
@@ -61,7 +71,7 @@ class User extends Authenticatable
     /** Admins act as the firm's attorneys (for the "handling attorney" dropdown). */
     public function scopeAttorneys(Builder $query): Builder
     {
-        return $query->where('role', UserRole::Admin->value);
+        return $query->whereIn('role', UserRole::lawyerValues());
     }
 
     // ── Relationships ───────────────────────────────────────

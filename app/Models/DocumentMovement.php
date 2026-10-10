@@ -20,6 +20,8 @@ class DocumentMovement extends Model
         'from_status',
         'to_status',
         'location',
+        'purpose',
+        'carried_by',
         'remarks',
         'received_by',
         'acted_by',

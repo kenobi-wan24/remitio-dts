@@ -1,12 +1,12 @@
-<x-app-layout :title="$showTrashed ? 'Deleted Clients' : 'Clients'">
-    <x-page-header :title="$showTrashed ? 'Deleted Clients' : 'Clients'"
-        subtitle="{{ number_format($clients->total()) }} {{ str('client')->plural($clients->total()) }} {{ $showTrashed ? 'in trash' : 'on record' }}">
+<x-app-layout :title="$showTrashed ? 'Removed Clients' : 'Clients'">
+    <x-page-header :title="$showTrashed ? 'Removed Clients' : 'Clients'"
+        subtitle="{{ number_format($clients->total()) }} {{ str('client')->plural($clients->total()) }} {{ $showTrashed ? 'removed' : 'on record' }}">
         <x-slot name="actions">
             @can('admin')
                 @if ($showTrashed)
                     <x-button variant="secondary" :href="route('clients.index')" icon="arrow-left">Back to Clients</x-button>
                 @else
-                    <x-button variant="ghost" :href="route('clients.index', ['view' => 'trash'])" icon="trash">Trash</x-button>
+                    <x-button variant="ghost" :href="route('clients.index', ['view' => 'deleted'])" icon="trash">Removed entries</x-button>
                 @endif
             @endcan
             @unless ($showTrashed)
@@ -17,7 +17,7 @@
 
     {{-- Filters --}}
     <form method="GET" action="{{ route('clients.index') }}" class="mb-4 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-end">
-        @if ($showTrashed) <input type="hidden" name="view" value="trash"> @endif
+        @if ($showTrashed) <input type="hidden" name="view" value="deleted"> @endif
 
         <div class="flex-1">
             <label for="q" class="block text-xs font-medium text-slate-500">Search</label>
@@ -58,7 +58,7 @@
         <div class="flex gap-2">
             <x-button>Filter</x-button>
             @if (request()->hasAny(['q', 'type', 'sort', 'engagement']))
-                <x-button variant="ghost" :href="route('clients.index', $showTrashed ? ['view' => 'trash'] : [])">Reset</x-button>
+                <x-button variant="ghost" :href="route('clients.index', $showTrashed ? ['view' => 'deleted'] : [])">Reset</x-button>
             @endif
         </div>
     </form>
@@ -67,7 +67,7 @@
         @if (request()->hasAny(['q', 'type', 'engagement']))
             <x-empty-state icon="magnifying-glass" title="No matching clients" message="Try a different name, code, or contact number." />
         @elseif ($showTrashed)
-            <x-empty-state icon="trash" title="Trash is empty" message="Deleted clients will appear here and can be restored." />
+            <x-empty-state icon="trash" title="No removed entries" message="Removed clients will appear here and can be restored." />
         @else
             <x-empty-state icon="users" title="No clients yet" message="Add the firm's first client to get started.">
                 <x-button :href="route('clients.create')" icon="plus">New Client</x-button>

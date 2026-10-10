@@ -24,15 +24,16 @@ class BackupService
 {
     /** In foreign-key order: parents first. Restore deletes in reverse, inserts in this order. */
     public const TABLES = [
-        'users', 'document_types', 'clients', 'legal_cases',
-        'documents', 'notarial_entries', 'document_movements', 'document_attachments', 'activity_logs',
+        'users', 'document_types', 'clients', 'client_ids', 'legal_cases',
+        'documents', 'document_parties', 'notarial_entries', 'document_movements', 'document_attachments', 'activity_logs',
     ];
 
     public const DISK = 'local';
 
     public const DIR = 'backups';
 
-    public const FILES_DIR = 'documents';
+    /** Folders of uploaded files: document files and (11C) scanned client IDs. */
+    public const FILES_DIRS = ['documents', 'client-ids'];
 
     private const APP = 'Remitio DTS';
 
@@ -88,7 +89,7 @@ class BackupService
             $counts[$table] = $count;
         }
 
-        $files = $disk->allFiles(self::FILES_DIR);
+        $files = collect(self::FILES_DIRS)->flatMap(fn ($dir) => $disk->allFiles($dir))->all();
         foreach ($files as $file) {
             $zip->addFile($disk->path($file), 'files/'.$file);
         }
@@ -239,9 +240,11 @@ class BackupService
 
         // Replace uploaded files
         $disk = Storage::disk(self::DISK);
-        $disk->deleteDirectory(self::FILES_DIR);
-        if (is_dir("{$work}/files/".self::FILES_DIR)) {
-            File::copyDirectory("{$work}/files/".self::FILES_DIR, $disk->path(self::FILES_DIR));
+        foreach (self::FILES_DIRS as $dir) {
+            $disk->deleteDirectory($dir);
+            if (is_dir("{$work}/files/{$dir}")) {
+                File::copyDirectory("{$work}/files/{$dir}", $disk->path($dir));
+            }
         }
 
         File::deleteDirectory($work);

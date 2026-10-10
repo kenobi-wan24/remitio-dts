@@ -8,7 +8,7 @@
             @can('delete', $client)
                 <x-confirm-delete :action="route('clients.destroy', $client)"
                     title="Delete {{ $client->display_name }}?"
-                    message="The client will be moved to trash. This is only allowed if they have no cases or documents." />
+                    message="The client will be moved to Removed entries. This is only allowed if they have no cases or documents." />
             @endcan
         </x-slot>
     </x-page-header>
@@ -50,6 +50,52 @@
                         </dd>
                     </div>
                 </dl>
+            </x-card>
+
+            {{-- 11C: valid IDs (competent evidence of identity) --}}
+            <x-card title="Valid IDs ({{ $client->validIds->count() }})">
+                @if ($client->validIds->isNotEmpty())
+                    <ul class="-mx-5 -mt-5 mb-4 divide-y divide-slate-100 border-b border-slate-100">
+                        @foreach ($client->validIds as $validId)
+                            <li class="flex items-start gap-3 px-5 py-3">
+                                <x-icon name="user-circle" class="mt-0.5 h-5 w-5 shrink-0 text-slate-400" />
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-sm font-medium text-slate-900">{{ $validId->id_type }}</p>
+                                    <p class="font-mono text-sm text-slate-700">{{ $validId->id_number }}</p>
+                                    <p class="text-xs text-slate-500">Added {{ $validId->created_at->format('M d, Y') }}@if ($validId->creator) by {{ $validId->creator->name }}@endif</p>
+                                </div>
+                                <div class="flex shrink-0 items-center gap-1">
+                                    @if ($validId->scan_path)
+                                        <x-button variant="ghost" size="sm" icon="eye" target="_blank" :href="route('client-ids.scan', $validId)">Scan</x-button>
+                                    @endif
+                                    @can('delete', $validId)
+                                        <x-confirm-delete :action="route('client-ids.destroy', $validId)" label=""
+                                            title="Remove this ID?" message="{{ $validId->id_type }} {{ $validId->masked }} and its scan will be removed." />
+                                    @endcan
+                                </div>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+
+                <form method="POST" action="{{ route('clients.ids.store', $client) }}" enctype="multipart/form-data" class="space-y-3">
+                    @csrf
+                    <x-form.input name="id_type" label="ID type" list="id-types" maxlength="60" required placeholder="e.g. Driver's License" />
+                    <datalist id="id-types">
+                        @foreach (\App\Models\ClientId::COMMON_TYPES as $type) <option value="{{ $type }}"> @endforeach
+                    </datalist>
+                    <x-form.input name="id_number" label="ID number" maxlength="60" required placeholder="e.g. D12-88-013540" />
+                    <div>
+                        <label for="scan" class="block text-sm font-medium text-slate-700">Scanned copy (optional)</label>
+                        <input type="file" id="scan" name="scan" accept=".pdf,.jpg,.jpeg,.png"
+                            class="mt-1 block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium hover:file:bg-slate-200">
+                        @error('scan') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    </div>
+                    <p class="text-xs text-slate-500">ID numbers are personal information (Data Privacy Act). Elsewhere in the system they are shown masked, e.g. •••• 3540.</p>
+                    <div class="flex justify-end">
+                        <x-button size="sm" icon="plus">Add valid ID</x-button>
+                    </div>
+                </form>
             </x-card>
 
             <x-card title="Notes">
@@ -143,7 +189,10 @@
                                                 @if ($document->legalCase) · {{ $document->legalCase->case_code }} @endif
                                             </p>
                                         </td>
-                                        <td class="px-5 py-3"><x-status-badge :status="$document->status" /></td>
+                                        <td class="px-5 py-3"><x-status-badge :status="$document->status" />
+                                            @if ($document->urgency !== \App\Enums\Urgency::Normal) <x-status-badge :status="$document->urgency" class="ml-1" /> @endif
+                                            @if ($document->isOnHold()) <x-status-badge color="purple" label="On hold" class="ml-1" /> @endif
+                                        </td>
                                         <td class="whitespace-nowrap px-5 py-3 text-slate-600">{{ $document->currentHolder?->name ?? '—' }}</td>
                                         <td class="whitespace-nowrap px-5 py-3 text-slate-500">{{ $document->date_received->format('M d, Y') }}</td>
                                     </tr>

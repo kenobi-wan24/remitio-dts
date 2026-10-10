@@ -87,6 +87,21 @@
                         </p>
                     @endif
 
+                    {{-- R2: out of office details --}}
+                    @if ($movement->purpose)
+                        <p class="mt-1 flex items-center gap-1.5 text-sm text-slate-600">
+                            <x-icon name="information-circle" class="h-4 w-4 text-slate-400" />
+                            Purpose: {{ $movement->purpose }}
+                        </p>
+                    @endif
+                    @if ($movement->carried_by)
+                        <p class="mt-1 flex items-center gap-1.5 text-sm text-slate-700">
+                            <x-icon name="user" class="h-4 w-4 text-slate-400" />
+                            {{ $movement->action === \App\Enums\MovementAction::SentOut ? 'Carried by' : 'Brought back by' }}
+                            <span class="font-medium">{{ $movement->carried_by }}</span>
+                        </p>
+                    @endif
+
                     {{-- Workflow v2: who received it on release --}}
                     @if ($movement->received_by)
                         <p class="mt-1 flex items-center gap-1.5 text-sm text-slate-700">

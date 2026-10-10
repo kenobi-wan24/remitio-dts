@@ -16,6 +16,7 @@ class DocumentType extends Model
     protected $fillable = [
         'name',
         'description',
+        'min_parties',
         'is_active',
     ];
 
@@ -23,6 +24,7 @@ class DocumentType extends Model
     {
         return [
             'is_active' => 'boolean',
+            'min_parties' => 'integer',
         ];
     }
 

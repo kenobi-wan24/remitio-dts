@@ -1,0 +1,38 @@
+R4 — URGENCY & PRIORITIZATION TEST CHECKLIST
+Accounts (password: password): admin@remitio.test · attorney@remitio.test (Lawyer) · secretary@remitio.test
+
+URGENCY (lawyers only)
+[ ] Document page → "Priority" card shows the urgency, its written criteria, and its priority group
+[ ] As admin/lawyer: "Change urgency" → pick Critical → the criteria text changes with the choice
+[ ] Saving without a reason → error; with a reason → saved
+[ ] Tracking History shows "Urgency Changed — Normal → Critical. Reason: …" (status and holder unchanged)
+[ ] As secretary: no "Change urgency" link
+[ ] Case form (lawyer): Urgency dropdown; a new document recorded in that case starts with that urgency
+[ ] Urgency badges appear on the Documents list, case page, client page and dashboard (Normal is not badged)
+
+ON HOLD (anyone handling the document)
+[ ] "Put on hold" needs a reason → purple "On hold" box with reason and since-date
+[ ] "Resume" clears it; both steps appear in the Tracking History
+[ ] Released/archived documents have no "Put on hold"
+[ ] Documents → Show: "On hold" lists only those documents
+
+PRIORITY QUEUE (prof item 8)
+[ ] Dashboard → My Action Queue opens "By priority":
+    Immediate Attention → (Due Soon) → High Priority → Routine → On Hold
+[ ] Each row shows what to do next (e.g. "Print & Send for Signature"), urgency badge, waiting time
+[ ] Inside a group: higher urgency first, then waiting longest
+[ ] A Critical document that is On Hold sits under On Hold (not Immediate), still badged Critical
+[ ] "By action" switches to the R1 grouping (Awaiting Review, Pending Signature, …)
+[ ] "Pending My Action" button / Documents?holder=me is sorted by Priority by default
+[ ] Documents list: Urgency filter and "Priority" sort work
+
+DEADLINES (only if the firm agrees)
+[ ] Default: no Deadline field anywhere
+[ ] .env DTS_DEADLINES=true → php artisan config:clear:
+    [ ] Document form shows "Deadline (optional)"
+    [ ] Due today/overdue → Immediate Attention (red "due" date); within 3 days → Due Soon
+[ ] Set it back to false → php artisan config:clear
+
+REPORTS
+[ ] Documents report CSV has Urgency and On Hold columns
+[ ] Roles & Permissions page has a "Priority" section

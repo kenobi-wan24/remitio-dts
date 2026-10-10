@@ -32,6 +32,12 @@ class UserFactory extends Factory
         return $this->state(fn () => ['role' => UserRole::Admin]);
     }
 
+    /** R3: a lawyer without administrator tools. */
+    public function lawyer(): static
+    {
+        return $this->state(fn () => ['role' => UserRole::Lawyer]);
+    }
+
     public function inactive(): static
     {
         return $this->state(fn () => ['is_active' => false]);

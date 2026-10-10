@@ -34,6 +34,21 @@
             <x-form.select name="handling_attorney_id" label="Handling Attorney" :options="$attorneys"
                 :selected="$case->handling_attorney_id" placeholder="Unassigned" />
         </div>
+        {{-- R4: case urgency (lawyers only) — new documents in this case start with it --}}
+        @if (auth()->user()->isLawyer())
+            <div class="mt-5 grid gap-5 sm:grid-cols-2" x-data="{ u: @js(old('urgency', $case->urgency?->value ?? 'normal')), c: @js(collect(\App\Enums\Urgency::cases())->mapWithKeys(fn ($u) => [$u->value => $u->criteria()])) }">
+                <div>
+                    <label for="urgency" class="block text-sm font-medium text-slate-700">Urgency</label>
+                    <select id="urgency" name="urgency" x-model="u" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-slate-500 focus:ring-slate-500 sm:text-sm">
+                        @foreach (\App\Enums\Urgency::cases() as $level)
+                            <option value="{{ $level->value }}">{{ $level->label() }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <p class="self-end text-xs text-slate-500" x-text="c[u]"></p>
+            </div>
+        @endif
+        <x-confidential-toggle :checked="$case->is_confidential" what="case" />
     </x-card>
 
     <x-card title="Court / Agency Details" x-show="isLitigated" x-cloak>

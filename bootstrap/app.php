@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureRecordAccess;
 use App\Http\Middleware\EnsureUserHasRole;
 use App\Http\Middleware\EnsureUserIsActive;
 use Illuminate\Foundation\Application;
@@ -15,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'role' => EnsureUserHasRole::class,
+            'record.access' => EnsureRecordAccess::class, // R3: per-record access (confidential / assigned)
         ]);
 
         $middleware->web(append: [

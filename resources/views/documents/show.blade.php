@@ -5,7 +5,7 @@
             @can('delete', $document)
                 <x-confirm-delete :action="route('documents.destroy', $document)"
                     title="Delete {{ $document->tracking_code }}?"
-                    message="The document and its history will be moved to trash. An admin can restore it later." />
+                    message="The document and its history will be moved to Removed entries. An admin can restore it later." />
             @endcan
         </x-slot>
     </x-page-header>
@@ -15,12 +15,22 @@
         <div class="flex-1">
             <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Tracking Code</p>
             <p class="font-mono text-2xl font-bold tracking-wider text-slate-900">{{ $document->tracking_code }}</p>
+            @if ($document->isConfidential())
+                <x-confidential-badge class="mt-1" />
+                @if (! $document->is_confidential) <span class="text-xs text-slate-500">(because its case is)</span> @endif
+            @endif
         </div>
         <div class="grid flex-[2] grid-cols-2 gap-4 sm:grid-cols-3">
             <div>
                 <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Status</p>
                 <div class="mt-1"><x-status-badge :status="$document->status" class="text-sm" /></div>
                 <p class="mt-1 text-xs text-slate-500">{{ $document->status->meaning() }}</p>
+                @if ($document->urgency !== \App\Enums\Urgency::Normal || $document->isOnHold())
+                    <div class="mt-1 flex flex-wrap gap-1">
+                        @if ($document->urgency !== \App\Enums\Urgency::Normal) <x-status-badge :status="$document->urgency" :label="$document->urgency->label().' urgency'" /> @endif
+                        @if ($document->isOnHold()) <x-status-badge color="purple" label="On hold" /> @endif
+                    </div>
+                @endif
             </div>
             <div>
                 <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Currently With</p>
@@ -28,14 +38,39 @@
             </div>
             <div>
                 <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Location</p>
-                <p class="mt-1 font-medium text-slate-900">{{ $document->physical_location ?? '—' }}</p>
+                @if ($document->isOutOfOffice())
+                    <p class="mt-1"><x-status-badge color="amber" label="Out of office" /></p>
+                    <p class="mt-1 font-medium text-slate-900">{{ $document->out_destination }}</p>
+                @else
+                    <p class="mt-1 font-medium text-slate-900">{{ $document->physical_location ?? '—' }}</p>
+                @endif
             </div>
         </div>
     </div>
 
+    {{-- R2: where the physical copy is while it is outside the office --}}
+    @if ($document->isOutOfOffice())
+        <div @class([
+            '-mt-2 mb-6 flex flex-wrap items-start gap-x-8 gap-y-2 rounded-xl border px-5 py-4 text-sm',
+            'border-red-200 bg-red-50 text-red-800' => $document->isOutOverdue(),
+            'border-amber-200 bg-amber-50 text-amber-900' => ! $document->isOutOverdue(),
+        ])>
+            <p class="flex items-center gap-2 font-semibold"><x-icon name="truck" class="h-5 w-5" /> Physical copy out of the office</p>
+            <p><span class="text-xs uppercase tracking-wide opacity-70">Brought to</span><br>{{ $document->out_destination }}</p>
+            <p><span class="text-xs uppercase tracking-wide opacity-70">Purpose</span><br>{{ $document->out_purpose }}</p>
+            <p><span class="text-xs uppercase tracking-wide opacity-70">Carried by</span><br>{{ $document->out_carried_by ?? '—' }}</p>
+            <p><span class="text-xs uppercase tracking-wide opacity-70">Out since</span><br>{{ $document->out_since->format('M d, Y h:i A') }} ({{ $document->out_since->diffForHumans() }})</p>
+            @if ($document->out_expected_back)
+                <p><span class="text-xs uppercase tracking-wide opacity-70">Expected back</span><br>
+                    {{ $document->out_expected_back->format('M d, Y') }} @if ($document->isOutOverdue()) <strong>· overdue</strong> @endif</p>
+            @endif
+        </div>
+    @endif
+
     <div class="grid gap-6 lg:grid-cols-3">
         {{-- Left: details --}}
         <div class="space-y-6">
+            @include('documents._priority')
             <x-card title="Details">
                 <dl class="space-y-4 text-sm">
                     <div>
@@ -76,6 +111,24 @@
                     </div>
                 </dl>
             </x-card>
+
+            {{-- 11C: parties to the document --}}
+            @if ($document->parties->isNotEmpty())
+                <x-card title="Parties ({{ $document->parties->count() }})" :padding="false">
+                    <ul class="divide-y divide-slate-100">
+                        @foreach ($document->parties as $party)
+                            @php $id = $party->validIds->first(); @endphp
+                            <li class="px-5 py-3">
+                                <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ $party->pivot->role ?: 'Party '.($loop->iteration) }}</p>
+                                <a href="{{ route('clients.show', $party) }}" class="text-sm font-medium text-slate-900 hover:underline">{{ $party->display_name }}</a>
+                                <p class="text-xs text-slate-500">
+                                    {{ $id ? $id->id_type.' '.$id->masked : 'No valid ID on file' }}
+                                </p>
+                            </li>
+                        @endforeach
+                    </ul>
+                </x-card>
+            @endif
 
             {{-- Workflow v2: dates filled in automatically from the tracking history --}}
             <x-card title="Key Dates">

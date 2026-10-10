@@ -6,48 +6,95 @@
         </x-slot>
     </x-page-header>
 
-    {{-- Stats --}}
+    {{-- KPIs — each one states its counting rule (R1) --}}
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <x-stat-card label="Active Cases" :value="$stats['active_cases']" icon="briefcase" color="blue" :href="route('cases.index')" />
-        <x-stat-card label="Documents In Process" :value="$stats['open_documents']" icon="document-text" color="indigo" :href="route('documents.index')" />
-        <x-stat-card label="For Review" :value="$stats['for_review']" icon="eye" color="amber"
-            :href="route('documents.index', ['status' => 'for_review'])" />
-        <x-stat-card label="Waiting for Me" :value="$stats['with_me']" icon="inbox" color="green"
-            :href="route('documents.index', ['holder' => 'me'])" />
+        <x-stat-card label="Active Cases" :value="$stats['active_cases']" icon="briefcase" color="blue" :href="route('cases.index')"
+            caption="Cases not yet closed" />
+        <x-stat-card label="Documents In Process" :value="$stats['in_process']" icon="document-text" color="indigo"
+            :href="route('documents.index', ['show' => 'in_process'])" caption="Not yet released or archived" />
+        <x-stat-card label="Awaiting Review" :value="$stats['awaiting_review']" icon="eye" color="amber"
+            :href="route('documents.index', ['status' => 'for_review'])" caption="Drafts waiting for a lawyer's check" />
+        <x-stat-card label="Pending My Action" :value="$stats['pending_mine']" icon="inbox" color="green"
+            :href="route('documents.index', ['holder' => 'me', 'show' => 'in_process'])" caption="The next step is yours" />
     </div>
 
     <div class="mt-6 grid gap-6 lg:grid-cols-3">
-        {{-- Workflow v2: what's waiting on me, longest-waiting first --}}
-        <x-card title="Waiting for Me" :padding="false" class="lg:col-span-2">
+        {{-- R1/R4: my documents, by priority (default) or by the action they need --}}
+        <x-card title="My Action Queue" :padding="false" class="lg:col-span-2">
             <x-slot name="actions">
-                <a href="{{ route('documents.index', ['holder' => 'me']) }}" class="text-xs font-medium text-slate-600 hover:text-slate-900">View all →</a>
+                <div class="flex rounded-lg bg-slate-100 p-0.5 text-xs font-medium">
+                    @foreach (['priority' => 'By priority', 'action' => 'By action'] as $view => $text)
+                        <a href="{{ route('dashboard', $view === 'priority' ? [] : ['queue' => $view]) }}"
+                            @class(['rounded-md px-2.5 py-1', 'bg-white text-slate-900 shadow-sm' => $queueView === $view, 'text-slate-500 hover:text-slate-800' => $queueView !== $view])>{{ $text }}</a>
+                    @endforeach
+                </div>
+                <a href="{{ route('documents.index', ['holder' => 'me', 'show' => 'in_process', 'sort' => 'priority']) }}" class="text-xs font-medium text-slate-600 hover:text-slate-900">View all →</a>
             </x-slot>
 
-            @if ($waitingForMe->isEmpty())
-                <x-empty-state class="m-5" icon="check-circle" title="All caught up" message="No documents are waiting for you." />
+            @if (empty($actionQueue))
+                <x-empty-state class="m-5" icon="check-circle" title="All caught up" message="No documents need your action right now." />
             @else
-                <ul class="divide-y divide-slate-100">
-                    @foreach ($waitingForMe as $document)
-                        <li>
-                            <a href="{{ route('documents.show', $document) }}" class="flex items-center gap-4 px-5 py-3 hover:bg-slate-50">
-                                <div class="min-w-0 flex-1">
-                                    <p class="flex items-center gap-2">
-                                        <span class="font-mono text-xs font-semibold text-slate-900">{{ $document->tracking_code }}</span>
-                                        <x-status-badge :status="$document->status" />
-                                    </p>
-                                    <p class="truncate text-sm text-slate-700">{{ $document->title }}</p>
-                                    <p class="truncate text-xs text-slate-500">{{ $document->client?->display_name }} · {{ $document->status->meaning() }}</p>
-                                </div>
-                                <span class="shrink-0 text-xs text-slate-400" title="Last moved">{{ $document->updated_at->diffForHumans() }}</span>
-                            </a>
-                        </li>
-                    @endforeach
-                </ul>
+                @foreach ($actionQueue as $group)
+                    @php
+                        $groupLink = $group['status']
+                            ? route('documents.index', ['holder' => 'me', 'status' => $group['status']->value])
+                            : route('documents.index', ['holder' => 'me', 'sort' => 'priority',
+                                'show' => $group['group'] === \App\Enums\PriorityGroup::OnHold ? 'on_hold' : 'in_process']);
+                    @endphp
+                    <div class="border-b border-slate-100 last:border-0">
+                        <a href="{{ $groupLink }}"
+                            class="flex items-center justify-between gap-2 bg-slate-50 px-5 py-2 hover:bg-slate-100">
+                            <span class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                                @if ($group['status'])
+                                    <x-status-badge :status="$group['status']" />
+                                    {{ $group['label'] }}
+                                @else
+                                    <x-status-badge :color="$group['group']->color()" :label="$group['label']" />
+                                    <span class="font-normal normal-case tracking-normal text-slate-400">{{ $group['group']->hint() }}</span>
+                                @endif
+                            </span>
+                            <span class="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">{{ $group['count'] }}</span>
+                        </a>
+                        <ul class="divide-y divide-slate-100">
+                            @foreach ($group['documents'] as $document)
+                                <li>
+                                    <a href="{{ route('documents.show', $document) }}" class="flex items-center gap-4 px-5 py-2.5 hover:bg-slate-50">
+                                        <span class="w-28 shrink-0 font-mono text-xs font-semibold text-slate-900">{{ $document->tracking_code }}</span>
+                                        <span class="min-w-0 flex-1">
+                                            <span class="block truncate text-sm text-slate-700">{{ $document->title }}</span>
+                                            <span class="block truncate text-xs text-slate-500">
+                                                @unless ($group['status']) <span class="font-medium text-slate-600">{{ $document->status->pendingAction() }}</span> · @endunless
+                                                {{ $document->client?->display_name }}
+                                                @if ($document->isOnHold()) · <span class="text-purple-700">{{ $document->on_hold_reason }}</span> @endif
+                                            </span>
+                                        </span>
+                                        @if ($document->urgency !== \App\Enums\Urgency::Normal)
+                                            <x-status-badge :status="$document->urgency" class="shrink-0" />
+                                        @endif
+                                        @if ($document->activeDeadline())
+                                            <span @class(['shrink-0 text-xs', 'font-semibold text-red-600' => $document->isOverdue(), 'text-slate-500' => ! $document->isOverdue()])>due {{ $document->deadline->format('M d') }}</span>
+                                        @endif
+                                        <span class="shrink-0 text-xs text-slate-400" title="Last step: {{ $document->waitingSince()->format('M d, Y h:i A') }}">
+                                            waiting {{ $document->waitingSince()->diffForHumans(null, true) }}
+                                        </span>
+                                    </a>
+                                </li>
+                            @endforeach
+                            @if ($group['count'] > $group['documents']->count())
+                                <li class="px-5 py-2 text-xs">
+                                    <a href="{{ $groupLink }}" class="text-slate-500 hover:text-slate-900">
+                                        + {{ $group['count'] - $group['documents']->count() }} more
+                                    </a>
+                                </li>
+                            @endif
+                        </ul>
+                    </div>
+                @endforeach
             @endif
         </x-card>
 
-        {{-- Documents by status (CSS bar chart — no extra library) --}}
-        <x-card title="Documents by Status">
+        {{-- R1: in-process statuses only; the bars add up to the "Documents In Process" KPI --}}
+        <x-card title="Documents In Process">
             @php
                 $barColors = [
                     'blue' => 'bg-blue-500', 'indigo' => 'bg-indigo-500', 'amber' => 'bg-amber-500',
@@ -55,7 +102,7 @@
                 ];
             @endphp
             <ul class="space-y-3">
-                @foreach ($statusChart as $row)
+                @foreach ($statusChart['rows'] as $row)
                     <li>
                         <a href="{{ route('documents.index', ['status' => $row['status']->value]) }}" class="group block">
                             <div class="flex items-center justify-between text-sm">
@@ -69,6 +116,23 @@
                     </li>
                 @endforeach
             </ul>
+
+            {{-- How the numbers reconcile --}}
+            <dl class="mt-5 space-y-1 border-t border-slate-200 pt-3 text-sm">
+                <div class="flex justify-between font-semibold text-slate-900">
+                    <dt>In process</dt><dd>{{ number_format($statusChart['in_process']) }}</dd>
+                </div>
+                <div class="flex justify-between text-slate-500">
+                    <dt>
+                        <a href="{{ route('documents.index', ['show' => 'completed']) }}" class="hover:text-slate-900 hover:underline">Completed</a>
+                        <span class="text-xs">(released {{ $statusChart['released'] }} · archived {{ $statusChart['archived'] }})</span>
+                    </dt>
+                    <dd>{{ number_format($statusChart['completed']) }}</dd>
+                </div>
+                <div class="flex justify-between border-t border-dashed border-slate-200 pt-1 text-slate-700">
+                    <dt>All documents</dt><dd>{{ number_format($statusChart['total']) }}</dd>
+                </div>
+            </dl>
         </x-card>
     </div>
 
@@ -88,7 +152,11 @@
                                 <span class="font-mono text-xs font-semibold text-slate-400">{{ $movement->document?->tracking_code }}</span>
                             @endif
                             <x-status-badge :status="$movement->action" />
-                            @if ($movement->to_status)
+                            @if ($movement->action->isOutOfOfficeStep())
+                                @if ($movement->location)
+                                    <span class="text-xs text-slate-500">{{ $movement->location }}</span>
+                                @endif
+                            @elseif ($movement->to_status)
                                 <x-icon name="chevron-right" class="h-3 w-3 text-slate-400" />
                                 <x-status-badge :status="$movement->to_status" />
                             @endif
@@ -110,6 +178,35 @@
         </x-card>
 
         <div class="space-y-6">
+            {{-- R2 / Problem 3: physical copies outside the office --}}
+            <x-card title="Out of Office ({{ $outOfOfficeCount }})" :padding="false">
+                @if ($outOfOfficeCount > $outOfOffice->count())
+                    <x-slot name="actions">
+                        <a href="{{ route('documents.index', ['show' => 'out']) }}" class="text-xs font-medium text-slate-600 hover:text-slate-900">View all →</a>
+                    </x-slot>
+                @endif
+                @if ($outOfOffice->isEmpty())
+                    <p class="px-5 py-6 text-center text-sm text-slate-400">All physical copies are in the office.</p>
+                @else
+                    <ul class="divide-y divide-slate-100">
+                        @foreach ($outOfOffice as $document)
+                            <li>
+                                <a href="{{ route('documents.show', $document) }}" class="block px-5 py-3 hover:bg-slate-50">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <span class="font-mono text-xs font-semibold text-slate-900">{{ $document->tracking_code }}</span>
+                                        <span @class(['text-xs', 'font-semibold text-red-600' => $document->isOutOverdue(), 'text-slate-400' => ! $document->isOutOverdue()])>
+                                            {{ $document->isOutOverdue() ? 'past expected return' : 'out '.$document->out_since->diffForHumans(null, true) }}
+                                        </span>
+                                    </div>
+                                    <p class="truncate text-sm text-slate-700">{{ $document->out_destination }}</p>
+                                    <p class="truncate text-xs text-slate-500">{{ $document->out_purpose }} · {{ $document->out_carried_by }}</p>
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </x-card>
+
             {{-- Workflow v2 (replaces due dates): documents that haven't moved the longest --}}
             <x-card title="In Process Longest" :padding="false">
                 @if ($longestInProcess->isEmpty())
@@ -121,7 +218,7 @@
                                 <a href="{{ route('documents.show', $document) }}" class="block px-5 py-3 hover:bg-slate-50">
                                     <div class="flex items-center justify-between gap-2">
                                         <span class="font-mono text-xs font-semibold text-slate-900">{{ $document->tracking_code }}</span>
-                                        <span class="text-xs text-slate-400">{{ $document->updated_at->diffForHumans(null, true) }}</span>
+                                        <span class="text-xs text-slate-400" title="Since the last step">{{ $document->waitingSince()->diffForHumans(null, true) }}</span>
                                     </div>
                                     <p class="truncate text-sm text-slate-700">{{ $document->title }}</p>
                                     <p class="truncate text-xs text-slate-500">{{ $document->status->label() }} · with {{ $document->currentHolder?->name ?? 'nobody' }}</p>

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin;
 use App\Http\Controllers\ClientController;
+use App\Http\Controllers\ClientIdController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentAttachmentController;
 use App\Http\Controllers\DocumentController;
@@ -15,7 +16,8 @@ use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/dashboard');
 
-Route::middleware('auth')->group(function () {
+// R3: 'record.access' checks every document / case / file / notarial entry named in a URL
+Route::middleware(['auth', 'record.access'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
     // Profile (account self-deletion removed on purpose — users are deactivated, not deleted)
@@ -30,6 +32,11 @@ Route::middleware('auth')->group(function () {
         ->withTrashed()
         ->name('clients.restore');
     Route::resource('clients', ClientController::class);
+
+    // ── 11C: client valid IDs (scans stored privately; viewing is logged) ──
+    Route::post('/clients/{client}/ids', [ClientIdController::class, 'store'])->name('clients.ids.store');
+    Route::get('/client-ids/{client_id}/scan', [ClientIdController::class, 'scan'])->name('client-ids.scan');
+    Route::delete('/client-ids/{client_id}', [ClientIdController::class, 'destroy'])->name('client-ids.destroy');
 
     // ── Phase 4: Cases (model is LegalCase — `case` is reserved in PHP) ──
     Route::patch('/cases/{legal_case}/restore', [LegalCaseController::class, 'restore'])
@@ -62,6 +69,12 @@ Route::middleware('auth')->group(function () {
     Route::post('/documents/{document}/movements', [DocumentMovementController::class, 'store'])
         ->name('documents.movements.store');
 
+    // ── R4: urgency (lawyers) and On Hold ──
+    Route::post('/documents/{document}/urgency', [\App\Http\Controllers\DocumentPriorityController::class, 'urgency'])
+        ->name('documents.urgency');
+    Route::post('/documents/{document}/hold', [\App\Http\Controllers\DocumentPriorityController::class, 'hold'])
+        ->name('documents.hold');
+
     // ── Phase 10: Reports (print / save as PDF, or ?format=csv) ──
     Route::prefix('reports')->name('reports.')->controller(ReportController::class)->group(function () {
         Route::get('/', 'index')->name('index');
@@ -84,6 +97,7 @@ Route::middleware('auth')->group(function () {
             ->name('document-types.toggle');
 
         Route::get('activity-logs', Admin\ActivityLogController::class)->name('activity-logs.index');
+        Route::get('permissions', Admin\PermissionController::class)->name('permissions');   // R3
 
         // ── Phase 11: Backup & Restore ──
         Route::get('backups', [Admin\BackupController::class, 'index'])->name('backups.index');
