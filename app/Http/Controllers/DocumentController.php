@@ -233,7 +233,7 @@ class DocumentController extends Controller
 
         return redirect()
             ->route('documents.index')
-            ->with('success', "Document {$document->tracking_code} was moved to Removed entries.");
+            ->with('success', "Document {$document->tracking_code} was moved to Deleted records.");
     }
 
     public function restore(Document $document): RedirectResponse

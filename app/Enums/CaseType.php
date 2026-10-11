@@ -14,7 +14,6 @@ enum CaseType: string
     case Administrative = 'administrative';
     case SpecialProceeding = 'special_proceeding';
     case Notarial = 'notarial';
-    case Consultation = 'consultation';
     case Other = 'other';
 
     public function label(): string
@@ -26,7 +25,6 @@ enum CaseType: string
             self::Administrative => 'Administrative',
             self::SpecialProceeding => 'Special Proceeding',
             self::Notarial => 'Notarial',
-            self::Consultation => 'Consultation',
             self::Other => 'Other',
         };
     }

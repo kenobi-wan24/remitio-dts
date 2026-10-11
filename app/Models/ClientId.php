@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Models\Concerns\LogsActivity;
+use App\Services\AttachmentService;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -22,6 +24,9 @@ class ClientId extends Model
         'Postal ID', "Voter's ID", 'PhilHealth ID', 'TIN ID', 'Senior Citizen ID', 'PWD ID', 'OFW ID',
     ];
 
+    /** Folder (on the private disk) where ID scans are stored. */
+    public const DIR = 'client-ids';
+
     protected $fillable = [
         'client_id', 'id_type', 'id_number',
         'scan_path', 'scan_name', 'scan_mime', 'scan_size',
@@ -40,6 +45,20 @@ class ClientId extends Model
     protected function label(): Attribute
     {
         return Attribute::get(fn () => "{$this->id_type} No. {$this->id_number}");
+    }
+
+    /** Record a valid ID (with an optional scan) for a client. Used by the profile card and the new-client form. */
+    public static function recordFor(Client $client, string $type, string $number, ?UploadedFile $scan, ?int $userId): self
+    {
+        return $client->validIds()->create([
+            'id_type' => trim($type),
+            'id_number' => trim($number),
+            'scan_path' => $scan?->store(self::DIR."/{$client->id}", AttachmentService::DISK),
+            'scan_name' => $scan?->getClientOriginalName(),
+            'scan_mime' => $scan?->getClientMimeType(),
+            'scan_size' => $scan?->getSize(),
+            'created_by' => $userId,
+        ]);
     }
 
     public function client(): BelongsTo

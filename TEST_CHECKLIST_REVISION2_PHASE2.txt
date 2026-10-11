@@ -1,0 +1,45 @@
+REVISION 2 - PHASE 2: CLIENTS
+Accounts (password: password): admin@remitio.test - attorney@remitio.test (Lawyer) - secretary@remitio.test
+
+AFTER EXTRACTING (over your existing folder)
+  php artisan migrate          (adds the new client columns; nothing is lost)
+  php artisan config:clear
+  php artisan view:clear
+  (optional) php artisan test  (117 tests)
+  (optional, fresh demo data) php artisan migrate:fresh --seed   <- this ERASES the database
+
+NEW INDIVIDUAL CLIENT  (Clients -> New Client -> Regular client -> Individual)
+[ ] Fields: Last Name, First Name, Middle Name, Suffix, Civil Status, Gender, Contact Number, Email, Address
+[ ] Saving without Civil Status or Gender is blocked
+[ ] Choosing Civil Status = Married shows "Spouse Details" (last, first, middle name, contact number)
+[ ] Married without the spouse's last/first name is blocked
+[ ] Any other civil status hides the spouse section and the spouse data is not saved
+[ ] "Valid ID" section: ID Type + ID Number (+ optional scan); entering only one of the two is blocked
+[ ] After saving, the client page shows Full Name (e.g. "Dela Cruz, Juan Santos Jr."), Civil Status, Gender, Spouse
+[ ] The saved ID appears under "Valid IDs" on the client page (number masked elsewhere)
+
+COMPANY CLIENT  (New Client -> Company / Organization)
+[ ] Fields: Business Name, Representative, Business Permit No., TIN (+ contact, email, address)
+[ ] Business Name and Representative are required; Permit No. and TIN are optional
+[ ] A wrong TIN such as "abc" is rejected; "123-456-789-000" is accepted
+[ ] Personal fields (name, civil status, gender, spouse) and the ID section are hidden
+[ ] Creating a company with the same TIN as an existing one shows the "possible duplicate" warning (same TIN)
+[ ] Client page shows Representative, Business Permit No., TIN
+
+WALK-IN (NOTARIZATION ONLY)  (New Client -> Walk-in)
+[ ] The form switches to an individual form; the Company option disappears
+[ ] Contact Number, Civil Status and Gender become optional
+[ ] Valid ID (type + number) is required
+[ ] Client page badge reads "Walk-in (notarization only)"; the Cases card says cases are not opened for walk-ins; no "New Case" button
+[ ] Cases -> New Case: the walk-in client is NOT in the client list
+[ ] Clients list -> Engagement filter has Retainer / Regular / Walk-in (notarization only)
+[ ] Editing a client that already has cases and choosing Walk-in is refused with a message
+[ ] You can still record a document for a walk-in client (Add document)
+
+CLIENT PAGE
+[ ] Recent Documents has a "Case" column: the case code (link) and title, or "No case"
+[ ] "Add document" button (top right of Recent Documents) opens Record Document with this client already selected
+
+EXISTING CLIENTS
+[ ] Old clients still open and list normally
+[ ] Editing an old individual asks for Civil Status and Gender; editing an old company asks for a Representative (fill them in once)

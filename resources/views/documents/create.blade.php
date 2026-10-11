@@ -1,5 +1,5 @@
 <x-app-layout title="Record Document">
-    <x-page-header title="Record Document" subtitle="A tracking code (DOC-YYYY-#####) is assigned automatically and the document starts as Received."
+    <x-page-header title="Record Document" subtitle="A tracking code (DOC-YYYY-#####) is assigned automatically and the document starts as Request In."
         :back="url()->previous() !== url()->current() ? url()->previous() : route('documents.index')" />
 
     <form method="POST" action="{{ route('documents.store') }}" enctype="multipart/form-data" class="max-w-4xl">

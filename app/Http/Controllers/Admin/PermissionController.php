@@ -23,10 +23,10 @@ class PermissionController extends Controller
             ['Record clients, cases and documents', true, true, true],
             ['Edit case / document details', true, 'Records they may see', 'Records they may see'],
             ['Mark a case or document confidential', true, true, false],
-            ['Delete and restore records (Removed entries)', true, false, false],
+            ['Delete and restore records (Deleted records)', true, false, false],
         ],
         'Document workflow' => [
-            ['Start drafting, submit, resubmit, send for signature, finalize, release, archive', true, true, true],
+            ['Start drafting, submit, resubmit, finalize, mark signed & sealed, release, archive', true, true, true],
             ['Hand over, send out of office, log return', true, true, true],
             ['Approve / ask for revision (marks the FINAL version)', true, true, false],
             ['Correct a wrong status (reason required)', true, true, false],

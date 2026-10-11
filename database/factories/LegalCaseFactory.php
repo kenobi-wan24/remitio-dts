@@ -52,7 +52,6 @@ class LegalCaseFactory extends Factory
             CaseType::Civil, CaseType::Labor, CaseType::Administrative => "{$clientName} vs. {$other}",
             CaseType::SpecialProceeding => "In the Matter of the Petition of {$clientName}",
             CaseType::Notarial => "Notarial Services - {$clientName}",
-            CaseType::Consultation => "Legal Consultation - {$clientName}",
             CaseType::Other => "Legal Matter - {$clientName}",
         };
     }

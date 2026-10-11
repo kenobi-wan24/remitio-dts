@@ -43,7 +43,8 @@
             <select id="engagement" name="engagement" class="mt-1 block w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-slate-500 focus:ring-slate-500">
                 <option value="">All clients</option>
                 <option value="retainer" @selected($engagement === 'retainer')>Retainer</option>
-                <option value="walk_in" @selected($engagement === 'walk_in')>Walk-in / one-time</option>
+                <option value="regular" @selected($engagement === 'regular')>Regular</option>
+                <option value="walk_in" @selected($engagement === 'walk_in')>Walk-in (notarization only)</option>
             </select>
         </div>
 
@@ -103,6 +104,7 @@
                                                 <a href="{{ route('clients.show', $client) }}" class="font-medium text-slate-900 hover:underline">{{ $client->display_name }}</a>
                                             @endif
                                             <p class="truncate text-xs text-slate-500">
+                                                @if ($client->notarization_only) <span class="font-semibold text-blue-700">Walk-in</span> · @endif
                                                 @if ($client->is_retainer) <span class="font-semibold text-amber-700">Retainer</span> · @endif
                                                 {{ $client->address ?? '—' }}
                                             </p>
@@ -111,7 +113,7 @@
                                 </td>
                                 <td class="whitespace-nowrap px-5 py-3 font-mono text-xs text-slate-600">{{ $client->client_code }}</td>
                                 <td class="whitespace-nowrap px-5 py-3">
-                                    <p class="text-slate-700">{{ $client->contact_number }}</p>
+                                    <p class="text-slate-700">{{ $client->contact_number ?? '—' }}</p>
                                     <p class="text-xs text-slate-500">{{ $client->email ?? '' }}</p>
                                 </td>
                                 <td class="px-5 py-3 text-center text-slate-700">{{ $client->cases_count }}</td>

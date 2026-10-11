@@ -184,7 +184,7 @@
 
     <x-card title="Date">
         <div class="grid gap-5 sm:grid-cols-2">
-            <x-form.input name="date_received" type="date" label="Date Received" :value="$document->date_received" required
+            <x-form.input name="date_received" type="date" label="Date Requested In" :value="$document->date_received" required
                 max="{{ today()->toDateString() }}" hint="The date the request or document reached the office." />
             @if (config('dts.deadlines'))
                 {{-- R4: optional, only when the firm turned deadlines on --}}

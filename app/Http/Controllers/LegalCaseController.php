@@ -157,7 +157,9 @@ class LegalCaseController extends Controller
     /** Dropdown data shared by create & edit. */
     private function formOptions(?LegalCase $case = null): array
     {
+        // Walk-in (notarization only) clients can't have cases; keep the case's current client if it already has one
         $clients = Client::query()
+            ->where(fn ($q) => $q->canHaveCases()->when($case?->client_id, fn ($q, $id) => $q->orWhere('id', $id)))
             ->orderByRaw('COALESCE(company_name, last_name)')
             ->orderBy('first_name')
             ->get(['id', 'client_code', 'client_type', 'first_name', 'last_name', 'company_name'])

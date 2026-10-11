@@ -19,7 +19,13 @@ class StoreLegalCaseRequest extends FormRequest
     {
         return [
             'title' => ['required', 'string', 'max:255'],
-            'client_id' => ['required', Rule::exists('clients', 'id')->whereNull('deleted_at')],
+            // Walk-in (notarization only) clients can't have cases; a case may keep its existing client
+            'client_id' => ['required', Rule::exists('clients', 'id')->whereNull('deleted_at')->where(
+                fn ($q) => $q->where('notarization_only', false)->when(
+                    $this->route('legal_case'),
+                    fn ($q, $case) => $q->orWhere('id', $case->client_id),
+                ),
+            )],
             'case_type' => ['required', Rule::enum(CaseType::class)],
             'docket_number' => ['nullable', 'string', 'max:50'],
             'court_or_venue' => ['nullable', 'string', 'max:255'],
@@ -45,9 +51,16 @@ class StoreLegalCaseRequest extends FormRequest
         ];
     }
 
+    public function messages(): array
+    {
+        return [
+            'client_id.exists' => 'Choose a client who can have cases (walk-in clients are recorded for notarization only).',
+        ];
+    }
+
     /**
      * Validated data, cleaned up:
-     *  - non-court matters (notarial, consultation, other) drop docket & court
+     *  - non-court matters (notarial, other) drop docket & court
      *  - closing a case sets date_closed to today if left blank; reopening clears it
      */
     public function caseData(): array

@@ -6,7 +6,7 @@
             <tr class="border-b border-slate-400 text-left uppercase text-slate-500">
                 <th class="py-1 pr-2">Tracking Code</th>
                 <th class="py-1 pr-2">Document</th>
-                <th class="py-1 pr-2">Received</th>
+                <th class="py-1 pr-2">Requested In</th>
                 <th class="py-1 pr-2">Status</th>
                 <th class="py-1 pr-2">With / Location</th>
             </tr>

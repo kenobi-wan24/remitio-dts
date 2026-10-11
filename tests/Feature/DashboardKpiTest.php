@@ -23,7 +23,7 @@ class DashboardKpiTest extends TestCase
         Document::factory(3)->create(['status' => DocumentStatus::ForReview]);
         Document::factory(2)->create(['status' => DocumentStatus::Released]);
         Document::factory(1)->create(['status' => DocumentStatus::Archived]);
-        Document::factory()->create(['status' => DocumentStatus::ForReview])->delete(); // removed entries are not counted
+        Document::factory()->create(['status' => DocumentStatus::ForReview])->delete(); // deleted records are not counted
 
         $response = $this->actingAs($user)->get(route('dashboard'))->assertOk();
 
@@ -57,7 +57,7 @@ class DashboardKpiTest extends TestCase
         $lawyer = User::factory()->admin()->create();
         $secretary = User::factory()->create();
         Document::factory(2)->create(['status' => DocumentStatus::ForReview, 'current_holder_id' => $lawyer->id]);
-        Document::factory()->create(['status' => DocumentStatus::ForSignature, 'current_holder_id' => $lawyer->id]);
+        Document::factory()->create(['status' => DocumentStatus::Finalized, 'current_holder_id' => $lawyer->id]);
         Document::factory()->create(['status' => DocumentStatus::ForDrafting, 'current_holder_id' => $secretary->id]);
         Document::factory()->create(['status' => DocumentStatus::Released, 'current_holder_id' => $lawyer->id]); // completed: not a task
 
@@ -65,7 +65,7 @@ class DashboardKpiTest extends TestCase
         $queue = collect($response->viewData('actionQueue'));
 
         $this->assertSame(3, $response->viewData('stats')['pending_mine']);
-        $this->assertSame(['Awaiting Review / Approval', 'Pending Signature'], $queue->pluck('label')->all());
+        $this->assertSame(['Awaiting Review / Approval', 'Awaiting Signature & Seal'], $queue->pluck('label')->all());
         $this->assertSame([2, 1], $queue->pluck('count')->all());
         $response->assertDontSee('Drafting in Progress', false); // the secretary's work is not in the lawyer's queue
     }
@@ -86,8 +86,8 @@ class DashboardKpiTest extends TestCase
         $admin = User::factory()->admin()->create();
         Document::factory()->create()->delete();
 
-        $this->actingAs($admin)->get(route('documents.index'))->assertSee('Removed entries')->assertDontSee('>Trash<', false);
-        $this->actingAs($admin)->get(route('documents.index', ['view' => 'deleted']))->assertOk()->assertSee('Removed Documents');
+        $this->actingAs($admin)->get(route('documents.index'))->assertSee('Deleted records')->assertDontSee('>Trash<', false);
+        $this->actingAs($admin)->get(route('documents.index', ['view' => 'deleted']))->assertOk()->assertSee('Deleted Documents');
         $this->assertSame(1, $this->actingAs($admin)->get(route('documents.index', ['view' => 'trash']))->viewData('documents')->total(), 'old links still work');
     }
 }

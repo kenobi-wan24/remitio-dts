@@ -5,7 +5,7 @@
             @can('delete', $document)
                 <x-confirm-delete :action="route('documents.destroy', $document)"
                     title="Delete {{ $document->tracking_code }}?"
-                    message="The document and its history will be moved to Removed entries. An admin can restore it later." />
+                    message="The document and its history will be moved to Deleted records. An admin can restore it later." />
             @endcan
         </x-slot>
     </x-page-header>
@@ -99,7 +99,7 @@
                         </dd>
                     </div>
                     <div>
-                        <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Date Received</dt>
+                        <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Date Requested In</dt>
                         <dd class="mt-0.5 text-slate-900">{{ $document->date_received->format('M d, Y') }}</dd>
                     </div>
                     <div>

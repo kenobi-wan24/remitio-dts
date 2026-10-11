@@ -22,7 +22,7 @@
                 <tr class="border-b-2 border-slate-800 text-left uppercase text-slate-600">
                     <th class="py-1.5 pr-2">#</th>
                     <th class="py-1.5 pr-2">Tracking Code</th>
-                    <th class="py-1.5 pr-2">Received</th>
+                    <th class="py-1.5 pr-2">Requested In</th>
                     <th class="py-1.5 pr-2">Document</th>
                     <th class="py-1.5 pr-2">Client / Case</th>
                     <th class="py-1.5 pr-2">Status</th>

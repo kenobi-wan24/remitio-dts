@@ -6,10 +6,12 @@ use App\Enums\ClientType;
 use App\Http\Requests\StoreClientRequest;
 use App\Http\Requests\UpdateClientRequest;
 use App\Models\Client;
+use App\Models\ClientId;
 use App\Models\Document;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
@@ -20,13 +22,15 @@ class ClientController extends Controller
         $showTrashed = in_array($request->input('view'), ['deleted', 'trash'], true) && $request->user()->isAdmin();
         $type = in_array($request->input('type'), ClientType::values(), true) ? $request->input('type') : null;
         $sort = $request->input('sort', 'name');
-        $engagement = in_array($request->input('engagement'), ['retainer', 'walk_in'], true) ? $request->input('engagement') : null;
+        $engagement = in_array($request->input('engagement'), ['retainer', 'regular', 'walk_in'], true) ? $request->input('engagement') : null;
 
         $clients = Client::query()
             ->when($showTrashed, fn ($query) => $query->onlyTrashed())
             ->search($request->input('q'))
             ->when($type, fn ($query) => $query->where('client_type', $type))
-            ->when($engagement, fn ($query) => $query->retainer($engagement === 'retainer'))
+            ->when($engagement === 'retainer', fn ($query) => $query->retainer())
+            ->when($engagement === 'regular', fn ($query) => $query->retainer(false)->walkIn(false))
+            ->when($engagement === 'walk_in', fn ($query) => $query->walkIn())
             ->withCount(['cases', 'documents'])
             ->when(
                 $sort === 'newest',
@@ -54,7 +58,16 @@ class ClientController extends Controller
             return $redirect;
         }
 
-        $client = Client::create([...$data, 'created_by' => $request->user()->id]);
+        $client = DB::transaction(function () use ($request, $data) {
+            $client = Client::create([...$data, 'created_by' => $request->user()->id]);
+
+            // ID entered on the new-client form (required for walk-ins)
+            if ($id = $request->idData()) {
+                ClientId::recordFor($client, $id['id_type'], $id['id_number'], $id['scan'], $request->user()->id);
+            }
+
+            return $client;
+        });
 
         return redirect()
             ->route('clients.show', $client)
@@ -81,7 +94,7 @@ class ClientController extends Controller
                 ->orWhereHas('parties', fn ($p) => $p->whereKey($client->id)));
 
         $documents = (clone $documentsQuery)
-            ->with(['documentType:id,name', 'currentHolder:id,name', 'legalCase:id,case_code'])
+            ->with(['documentType:id,name', 'currentHolder:id,name', 'legalCase:id,case_code,title'])
             ->latest('date_received')
             ->latest('id')
             ->take(10)
@@ -103,6 +116,13 @@ class ClientController extends Controller
 
         if ($redirect = $this->stopIfPossibleDuplicate($request, $data, $client->id)) {
             return $redirect;
+        }
+
+        // A client with cases can't become a walk-in (notarization only) client
+        if ($data['notarization_only'] && $client->cases()->exists()) {
+            return back()->withInput()->withErrors([
+                'category' => 'This client already has cases, so they cannot be changed to a walk-in (notarization only) client.',
+            ]);
         }
 
         $client->update($data);
@@ -162,6 +182,7 @@ class ClientController extends Controller
     private function summarizeDuplicates(Collection $duplicates, array $data): array
     {
         $newName = mb_strtolower(trim($data['company_name'] ?? "{$data['first_name']} {$data['last_name']}"));
+        $newTin = $data['tin'] ?? null;
 
         return $duplicates->map(fn (Client $client) => [
             'id' => $client->id,
@@ -169,7 +190,8 @@ class ClientController extends Controller
             'name' => $client->display_name,
             'contact' => $client->contact_number,
             'reasons' => array_values(array_filter([
-                mb_strtolower((string) $client->display_name) === $newName ? 'same name' : null,
+                mb_strtolower(trim((string) ($client->company_name ?? "{$client->first_name} {$client->last_name}"))) === $newName ? 'same name' : null,
+                filled($newTin) && $client->tin === $newTin ? 'same TIN' : null,
                 filled($data['contact_number'] ?? null) && $client->contact_number === $data['contact_number'] ? 'same contact number' : null,
                 filled($data['email'] ?? null) && strcasecmp((string) $client->email, $data['email']) === 0 ? 'same email' : null,
             ])),

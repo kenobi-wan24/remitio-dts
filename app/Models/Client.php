@@ -3,7 +3,9 @@
 namespace App\Models;
 
 use App\Models\Concerns\LogsActivity;
+use App\Enums\CivilStatus;
 use App\Enums\ClientType;
+use App\Enums\Gender;
 use App\Models\Concerns\GeneratesReferenceCode;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -22,9 +24,21 @@ class Client extends Model
     protected $fillable = [
         'client_type',
         'is_retainer',
+        'notarization_only',
         'first_name',
+        'middle_name',
         'last_name',
+        'suffix',
+        'civil_status',
+        'gender',
+        'spouse_last_name',
+        'spouse_first_name',
+        'spouse_middle_name',
+        'spouse_contact_number',
         'company_name',
+        'representative',
+        'business_permit_number',
+        'tin',
         'contact_number',
         'email',
         'address',
@@ -37,6 +51,9 @@ class Client extends Model
         return [
             'client_type' => ClientType::class,
             'is_retainer' => 'boolean',
+            'notarization_only' => 'boolean',
+            'civil_status' => CivilStatus::class,
+            'gender' => Gender::class,
         ];
     }
 
@@ -52,12 +69,63 @@ class Client extends Model
 
     // ── Accessors ───────────────────────────────────────────
 
-    /** $client->display_name → "Juan Dela Cruz" or "ABC Trading Corp." */
+    /** $client->display_name → "Juan Santos Dela Cruz Jr." or "ABC Trading Corp." */
     protected function displayName(): Attribute
     {
         return Attribute::get(fn () => $this->client_type === ClientType::Company
             ? $this->company_name
-            : trim("{$this->first_name} {$this->last_name}"));
+            : $this->fullName());
+    }
+
+    /** First Middle Last Suffix (blank parts are skipped). */
+    public function fullName(): string
+    {
+        return trim(implode(' ', array_filter([
+            $this->first_name, $this->middle_name, $this->last_name, $this->suffix,
+        ], fn ($part) => filled($part))));
+    }
+
+    /** "Dela Cruz, Juan Santos Jr." (registry order, handy for lists and reports) */
+    protected function formalName(): Attribute
+    {
+        return Attribute::get(function () {
+            if ($this->client_type === ClientType::Company) {
+                return $this->company_name;
+            }
+
+            $given = trim(implode(' ', array_filter([$this->first_name, $this->middle_name], fn ($p) => filled($p))));
+            $name = filled($this->last_name) ? $this->last_name.($given !== '' ? ", {$given}" : '') : $given;
+
+            return trim($name.(filled($this->suffix) ? " {$this->suffix}" : ''));
+        });
+    }
+
+    /** Married clients have spouse details. */
+    public function isMarried(): bool
+    {
+        return $this->civil_status === CivilStatus::Married;
+    }
+
+    /** "Maria Reyes Santos" or null when no spouse is recorded. */
+    protected function spouseName(): Attribute
+    {
+        return Attribute::get(function () {
+            $name = trim(implode(' ', array_filter([
+                $this->spouse_first_name, $this->spouse_middle_name, $this->spouse_last_name,
+            ], fn ($part) => filled($part))));
+
+            return $name === '' ? null : $name;
+        });
+    }
+
+    /** Short label for the client's engagement. */
+    public function engagementLabel(): string
+    {
+        return match (true) {
+            $this->notarization_only => 'Walk-in (notarization only)',
+            (bool) $this->is_retainer => 'Retainer client',
+            default => 'Regular client',
+        };
     }
 
     // ── Scopes ──────────────────────────────────────────────
@@ -74,8 +142,11 @@ class Client extends Model
                 $like = "%{$word}%";
                 $q->where('client_code', 'like', $like)
                     ->orWhere('first_name', 'like', $like)
+                    ->orWhere('middle_name', 'like', $like)
                     ->orWhere('last_name', 'like', $like)
                     ->orWhere('company_name', 'like', $like)
+                    ->orWhere('representative', 'like', $like)
+                    ->orWhere('tin', 'like', $like)
                     ->orWhere('contact_number', 'like', $like)
                     ->orWhere('email', 'like', $like);
             });
@@ -88,6 +159,18 @@ class Client extends Model
     public function scopeRetainer(Builder $query, bool $isRetainer = true): Builder
     {
         return $query->where('is_retainer', $isRetainer);
+    }
+
+    /** Walk-in clients (notarization only). */
+    public function scopeWalkIn(Builder $query, bool $walkIn = true): Builder
+    {
+        return $query->where('notarization_only', $walkIn);
+    }
+
+    /** Clients who can have cases opened for them (everyone except walk-in / notarization-only). */
+    public function scopeCanHaveCases(Builder $query): Builder
+    {
+        return $query->where('notarization_only', false);
     }
 
     /**
@@ -106,6 +189,10 @@ class Client extends Model
             $checks[] = fn (Builder $q) => $q->orWhere(fn (Builder $name) => $name
                 ->where('first_name', $data['first_name'])
                 ->where('last_name', $data['last_name']));
+        }
+
+        if (filled($data['tin'] ?? null)) {
+            $checks[] = fn (Builder $q) => $q->orWhere('tin', $data['tin']);
         }
 
         if (filled($data['contact_number'] ?? null)) {

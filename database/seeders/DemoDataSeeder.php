@@ -20,9 +20,9 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 /**
- * Demo data following Workflow v2:
- * Received → For Drafting → For Review ⇄ Revision Required → Approved → For Signature
- * → Signed → Finalized → Released → Archived (+ Notarial Register entries)
+ * Demo data following Workflow v3:
+ * Request In → Draft → Review ⇄ Revision → Approved → Finalized
+ * → Signature & Sealed → Released → Archived (+ Notarial Register entries)
  */
 class DemoDataSeeder extends Seeder
 {
@@ -67,6 +67,22 @@ class DemoDataSeeder extends Seeder
                     'created_by' => $users->random()->id,
                 ]);
             }
+        }
+
+        // Revision 2: walk-in clients (notarization only): ID on file, one document each, no cases
+        $walkIns = Client::factory(3)->walkIn()->state($randomUser)->create();
+        foreach ($walkIns as $walkIn) {
+            ClientId::create([
+                'client_id' => $walkIn->id,
+                'id_type' => fake()->randomElement($idTypes),
+                'id_number' => strtoupper(fake()->bothify('?##-##-######')),
+                'created_by' => $users->random()->id,
+            ]);
+
+            Document::factory()
+                ->state(fn () => ['client_id' => $walkIn->id, 'legal_case_id' => null, 'created_by' => $users->random()->id])
+                ->create()
+                ->each(fn (Document $doc) => $this->simulateHistory($doc));
         }
 
         // 2) Cases + documents per client
@@ -120,7 +136,7 @@ class DemoDataSeeder extends Seeder
         ];
 
         $documents = Document::open()
-            ->whereIn('status', ['approved', 'signed', 'finalized', 'for_drafting'])
+            ->whereIn('status', ['approved', 'finalized', 'signed_sealed', 'for_drafting'])
             ->inRandomOrder()
             ->take(count($trips))
             ->get();
@@ -197,9 +213,8 @@ class DemoDataSeeder extends Seeder
         }
         $steps = [...$steps,
             [MovementAction::Approved, DocumentStatus::Approved, $secretary, $lawyer, 'Content approved.'],
-            [MovementAction::SentForSignature, DocumentStatus::ForSignature, $lawyer, $secretary, 'Printed and given for signature.'],
-            [MovementAction::Signed, DocumentStatus::Signed, $secretary, $lawyer, "Signed by {$lawyer->name}."],
-            [MovementAction::Finalized, DocumentStatus::Finalized, $secretary, $secretary, 'Sealed; client copy prepared.'],
+            [MovementAction::Finalized, DocumentStatus::Finalized, $secretary, $secretary, 'Content final; printed for signature and seal.'],
+            [MovementAction::Signed, DocumentStatus::SignedSealed, $secretary, $secretary, "Signed by {$lawyer->name}; sealed; client copy prepared."],
             [MovementAction::ReleasedToClient, DocumentStatus::Released, null, $secretary, 'Original released.'],
             [MovementAction::Archived, DocumentStatus::Archived, null, $secretary, 'Matter completed.'],
         ];

@@ -5,7 +5,7 @@ namespace App\Enums;
 use App\Enums\Concerns\HasOptions;
 
 /**
- * Workflow v2 actions (the "next step" buttons).
+ * Workflow v2/v3 actions (the "next step" buttons).
  * Returned, StatusChanged and FiledInCourt are kept ONLY so older history lines still display;
  * they are never offered as buttons. (Court filing is on hold until confirmed with the firm.)
  */
@@ -19,8 +19,8 @@ enum MovementAction: string
     case Approved = 'approved';
     case RevisionRequired = 'revision_required';
     case Resubmitted = 'resubmitted';
-    case SentForSignature = 'sent_for_signature';
-    case Signed = 'signed';
+    case SentForSignature = 'sent_for_signature'; // legacy (history only) — no longer offered since Workflow v3
+    case Signed = 'signed';                      // v3: "Signed & Sealed" (Finalized → Signature & Sealed)
     case Finalized = 'finalized';
     case ReleasedToClient = 'released_to_client';
     case Archived = 'archived';
@@ -40,14 +40,14 @@ enum MovementAction: string
     public function label(): string
     {
         return match ($this) {
-            self::Received => 'Received',
+            self::Received => 'Request In',
             self::DraftingStarted => 'Drafting Started',
             self::SubmittedForReview => 'Submitted for Review',
             self::Approved => 'Approved',
             self::RevisionRequired => 'Revision Required',
             self::Resubmitted => 'Resubmitted for Review',
             self::SentForSignature => 'Sent for Signature',
-            self::Signed => 'Signed',
+            self::Signed => 'Signed & Sealed',
             self::Finalized => 'Finalized',
             self::ReleasedToClient => 'Released to Client',
             self::Archived => 'Archived',
@@ -68,14 +68,14 @@ enum MovementAction: string
     public function buttonLabel(): string
     {
         return match ($this) {
-            self::Received => 'Receive back',
+            self::Received => 'Request in again',
             self::DraftingStarted => 'Start drafting',
             self::SubmittedForReview => 'Submit for review',
             self::Approved => 'Approve',
             self::RevisionRequired => 'Revision required',
             self::Resubmitted => 'Resubmit for review',
             self::SentForSignature => 'Send for signature',
-            self::Signed => 'Mark as signed',
+            self::Signed => 'Mark as signed & sealed',
             self::Finalized => 'Finalize',
             self::ReleasedToClient => 'Release to client',
             self::Archived => 'Archive',
@@ -131,15 +131,15 @@ enum MovementAction: string
     public function description(): string
     {
         return match ($this) {
-            self::Received => 'The document came back to the office.',
+            self::Received => 'The document is requested in again (it came back to the office).',
             self::DraftingStarted => 'The lawyer gave instructions; drafting begins.',
             self::SubmittedForReview => 'The draft is done; send it to the lawyer to check.',
             self::Approved => 'The content is correct; choose the approved file version.',
             self::RevisionRequired => 'Send it back to the secretary with corrections.',
             self::Resubmitted => 'The corrections are done; upload the new version.',
             self::SentForSignature => 'Printed and given to the lawyer to sign.',
-            self::Signed => 'The lawyer has signed the document.',
-            self::Finalized => 'Sealed, completed, and the client\'s copy prepared.',
+            self::Signed => 'The lawyer has signed the document and it is sealed.',
+            self::Finalized => 'The content is final. It is ready for the lawyer\'s signature and seal.',
             self::ReleasedToClient => 'Given to the client or their representative.',
             self::Archived => 'The matter is done; store the office copy.',
             self::Forwarded => 'Pass it to another person without changing the status.',

@@ -1,13 +1,24 @@
-RENAME: "Deleted records" → "Removed entries"
-=============================================
-Install ON TOP of R4 (revision1-r4-priority.zip).
+REVISION 1 — PHASE R4: URGENCY & PRIORITIZATION (professor's critique items 4 and 8)
+====================================================================================
+Install ON TOP of remitio-dts-full-sync.zip (do the full sync first).
 
-1. MERGE-COPY everything in this zip into the project folder → "Replace the files".
-2. Run:
+1. Back up first:  backup-dts.bat
+
+2. MERGE-COPY everything in this zip into the project folder → "Replace the files".
+
+3. Add to .env (optional — these are the defaults):
+      DTS_DEADLINES=false
+
+4. Run:
+      php artisan migrate          (adds urgency, on-hold and the optional deadline column)
+      npm run build
       php artisan optimize:clear
-      php artisan test            (expect 100 tests, all passing)
-   No migration, no npm build needed.
-3. Check: Documents / Cases / Clients (as admin) → the button now says "Removed entries".
-4. git add -A
-   git commit -m "chore: rename Deleted records to Removed entries"
-   git push
+      php artisan test             (expect 100 tests, all passing)
+
+   Fresh demo data (optional, ERASES your data):  php artisan migrate:fresh --seed
+   → some Critical/High/Low documents, two On Hold, two High-urgency cases.
+
+5. Follow TEST_CHECKLIST.txt, then:
+      git add -A
+      git commit -m "feat: revision 1 R4 (urgency, on hold, priority queue, optional deadlines)"
+      git push

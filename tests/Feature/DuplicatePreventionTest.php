@@ -17,6 +17,8 @@ class DuplicatePreventionTest extends TestCase
             'client_type' => 'individual',
             'first_name' => 'Maria Clara',
             'last_name' => 'Santos',
+            'civil_status' => 'single',
+            'gender' => 'female',
             'contact_number' => '09171234567',
             ...$overrides,
         ];

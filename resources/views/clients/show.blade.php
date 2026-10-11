@@ -8,7 +8,7 @@
             @can('delete', $client)
                 <x-confirm-delete :action="route('clients.destroy', $client)"
                     title="Delete {{ $client->display_name }}?"
-                    message="The client will be moved to Removed entries. This is only allowed if they have no cases or documents." />
+                    message="The client will be moved to Deleted records. This is only allowed if they have no cases or documents." />
             @endcan
         </x-slot>
     </x-page-header>
@@ -16,7 +16,7 @@
     <div class="-mt-3 mb-6 flex flex-wrap items-center gap-2 text-sm">
         <span class="font-mono text-slate-600">{{ $client->client_code }}</span>
         <x-status-badge :color="$client->client_type === ClientType::Company ? 'indigo' : 'gray'" :label="$client->client_type->label()" />
-        <x-status-badge :color="$client->is_retainer ? 'amber' : 'gray'" :label="$client->is_retainer ? 'Retainer Client' : 'Walk-in / One-time'" />
+        <x-status-badge :color="$client->notarization_only ? 'blue' : ($client->is_retainer ? 'amber' : 'gray')" :label="$client->engagementLabel()" />
     </div>
 
     <div class="grid gap-6 lg:grid-cols-3">
@@ -24,9 +24,57 @@
         <div class="space-y-6">
             <x-card title="Client Details">
                 <dl class="space-y-4 text-sm">
+                    @if ($client->client_type === ClientType::Company)
+                        <div>
+                            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Representative</dt>
+                            <dd class="mt-0.5 text-slate-900">{{ $client->representative ?? '—' }}</dd>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Business Permit No.</dt>
+                                <dd class="mt-0.5 text-slate-900">{{ $client->business_permit_number ?? '—' }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">TIN</dt>
+                                <dd class="mt-0.5 font-mono text-slate-900">{{ $client->tin ?? '—' }}</dd>
+                            </div>
+                        </div>
+                    @else
+                        <div>
+                            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Full Name</dt>
+                            <dd class="mt-0.5 text-slate-900">{{ $client->formal_name }}</dd>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Civil Status</dt>
+                                <dd class="mt-0.5 text-slate-900">{{ $client->civil_status?->label() ?? '—' }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Gender</dt>
+                                <dd class="mt-0.5 text-slate-900">{{ $client->gender?->label() ?? '—' }}</dd>
+                            </div>
+                        </div>
+                        @if ($client->isMarried())
+                            <div>
+                                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Spouse</dt>
+                                <dd class="mt-0.5 text-slate-900">
+                                    {{ $client->spouse_name ?? '—' }}
+                                    @if ($client->spouse_contact_number)
+                                        <span class="text-slate-500">· {{ $client->spouse_contact_number }}</span>
+                                    @endif
+                                </dd>
+                            </div>
+                        @endif
+                    @endif
                     <div>
                         <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Contact Number</dt>
-                        <dd class="mt-0.5"><a href="tel:{{ preg_replace('/\s+/', '', $client->contact_number) }}" class="text-slate-900 hover:underline">{{ $client->contact_number }}</a></dd>
+                        <dd class="mt-0.5">
+                            @if ($client->contact_number)
+                                <a href="tel:{{ preg_replace('/\s+/', '', $client->contact_number) }}" class="text-slate-900 hover:underline">{{ $client->contact_number }}</a>
+                            @else
+                                <span class="text-slate-400">Not provided</span>
+                            @endif
+                        </dd>
                     </div>
                     <div>
                         <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Email</dt>
@@ -116,10 +164,14 @@
 
             {{-- Cases --}}
             <x-card title="Cases" :padding="false">
-                @if (Route::has('cases.create'))
+                @if (Route::has('cases.create') && ! $client->notarization_only)
                     <x-slot name="actions">
                         <x-button size="sm" variant="secondary" :href="route('cases.create', ['client_id' => $client->id])" icon="plus">New Case</x-button>
                     </x-slot>
+                @endif
+
+                @if ($cases->isEmpty() && $client->notarization_only)
+                    <x-empty-state class="m-5" icon="briefcase" title="Walk-in client" message="This client is recorded for notarization only, so cases are not opened for them." />
                 @endif
 
                 @forelse ($cases as $case)
@@ -146,17 +198,20 @@
                         </div>
                     </div>
                 @empty
-                    <x-empty-state class="m-5" icon="briefcase" title="No cases yet" message="Cases for this client will appear here." />
+                    @unless ($client->notarization_only)
+                        <x-empty-state class="m-5" icon="briefcase" title="No cases yet" message="Cases for this client will appear here." />
+                    @endunless
                 @endforelse
             </x-card>
 
             {{-- Documents --}}
             <x-card title="Recent Documents" :padding="false">
-                @if ($documentsCount > $documents->count())
-                    <x-slot name="actions">
+                <x-slot name="actions">
+                    @if ($documentsCount > $documents->count())
                         <span class="text-xs text-slate-500">Showing latest {{ $documents->count() }} of {{ $documentsCount }}</span>
-                    </x-slot>
-                @endif
+                    @endif
+                    <x-button size="sm" variant="secondary" :href="route('documents.create', ['client_id' => $client->id])" icon="plus">Add document</x-button>
+                </x-slot>
 
                 @if ($documents->isEmpty())
                     <x-empty-state class="m-5" icon="document-text" title="No documents yet" message="Documents received for this client will appear here." />
@@ -167,9 +222,10 @@
                                 <tr>
                                     <th class="px-5 py-2.5">Tracking Code</th>
                                     <th class="px-5 py-2.5">Document</th>
+                                    <th class="px-5 py-2.5">Case</th>
                                     <th class="px-5 py-2.5">Status</th>
                                     <th class="px-5 py-2.5">With</th>
-                                    <th class="px-5 py-2.5">Received</th>
+                                    <th class="px-5 py-2.5">Requested In</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100">
@@ -184,10 +240,16 @@
                                         </td>
                                         <td class="px-5 py-3">
                                             <p class="text-slate-900">{{ $document->title }}</p>
-                                            <p class="text-xs text-slate-500">
-                                                {{ $document->documentType?->name }}
-                                                @if ($document->legalCase) · {{ $document->legalCase->case_code }} @endif
-                                            </p>
+                                            <p class="text-xs text-slate-500">{{ $document->documentType?->name }}</p>
+                                        </td>
+                                        <td class="whitespace-nowrap px-5 py-3">
+                                            @if ($document->legalCase)
+                                                <a href="{{ route('cases.show', $document->legalCase) }}" title="{{ $document->legalCase->title }}"
+                                                    class="font-mono text-xs font-semibold text-slate-900 hover:underline">{{ $document->legalCase->case_code }}</a>
+                                                <p class="max-w-[12rem] truncate text-xs text-slate-500">{{ $document->legalCase->title }}</p>
+                                            @else
+                                                <span class="text-xs text-slate-400">No case</span>
+                                            @endif
                                         </td>
                                         <td class="px-5 py-3"><x-status-badge :status="$document->status" />
                                             @if ($document->urgency !== \App\Enums\Urgency::Normal) <x-status-badge :status="$document->urgency" class="ml-1" /> @endif

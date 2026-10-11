@@ -1,14 +1,14 @@
 @php use App\Enums\CaseStatus; use App\Enums\CaseType; @endphp
 
-<x-app-layout :title="$showTrashed ? 'Removed Cases' : 'Cases'">
-    <x-page-header :title="$showTrashed ? 'Removed Cases' : 'Cases'"
-        subtitle="{{ number_format($cases->total()) }} {{ str('case')->plural($cases->total()) }} {{ $showTrashed ? 'removed' : 'found' }}">
+<x-app-layout :title="$showTrashed ? 'Deleted Cases' : 'Cases'">
+    <x-page-header :title="$showTrashed ? 'Deleted Cases' : 'Cases'"
+        subtitle="{{ number_format($cases->total()) }} {{ str('case')->plural($cases->total()) }} {{ $showTrashed ? 'deleted' : 'found' }}">
         <x-slot name="actions">
             @can('admin')
                 @if ($showTrashed)
                     <x-button variant="secondary" :href="route('cases.index')" icon="arrow-left">Back to Cases</x-button>
                 @else
-                    <x-button variant="ghost" :href="route('cases.index', ['view' => 'deleted'])" icon="trash">Removed entries</x-button>
+                    <x-button variant="ghost" :href="route('cases.index', ['view' => 'deleted'])" icon="trash">Deleted records</x-button>
                 @endif
             @endcan
             @unless ($showTrashed)
@@ -97,7 +97,7 @@
         @if (request()->hasAny(['q', 'type', 'attorney', 'status']))
             <x-empty-state icon="magnifying-glass" title="No matching cases" message="Try another search term or clear the filters." />
         @elseif ($showTrashed)
-            <x-empty-state icon="trash" title="No removed entries" message="Removed cases will appear here and can be restored." />
+            <x-empty-state icon="trash" title="No deleted records" message="Deleted cases will appear here and can be restored." />
         @else
             <x-empty-state icon="briefcase" title="No cases yet" message="Open the first case for a client.">
                 <x-button :href="route('cases.create')" icon="plus">New Case</x-button>

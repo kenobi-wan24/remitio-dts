@@ -18,14 +18,17 @@ class OutOfOfficeTest extends TestCase
 
     private User $secretary;
 
+    private User $lawyer;
+
     private Document $document;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->secretary = User::factory()->create();
+        $this->lawyer = User::factory()->admin()->create();
         $this->document = Document::factory()->create([
-            'status' => DocumentStatus::Signed,
+            'status' => DocumentStatus::Finalized,
             'current_holder_id' => $this->secretary->id,
             'physical_location' => 'Cabinet 3',
         ]);
@@ -49,7 +52,7 @@ class OutOfOfficeTest extends TestCase
 
         $document = $this->document->fresh();
         $this->assertTrue($document->isOutOfOffice());
-        $this->assertSame(DocumentStatus::Signed, $document->status, 'status unchanged');
+        $this->assertSame(DocumentStatus::Finalized, $document->status, 'status unchanged');
         $this->assertSame($this->secretary->id, $document->current_holder_id, 'responsible person unchanged');
         $this->assertSame('RTC Branch 12, Davao City', $document->out_destination);
         $this->assertSame('Cabinet 3', $document->physical_location, 'office location kept for its return');
@@ -60,8 +63,8 @@ class OutOfOfficeTest extends TestCase
             'location' => 'RTC Branch 12, Davao City',
             'purpose' => 'Filing in court / agency',
             'carried_by' => 'Pedro (process server)',
-            'from_status' => 'signed',
-            'to_status' => 'signed',
+            'from_status' => 'finalized',
+            'to_status' => 'finalized',
         ]);
     }
 
@@ -79,7 +82,7 @@ class OutOfOfficeTest extends TestCase
     {
         $this->sendOut();
 
-        $this->actingAs($this->secretary)->post(route('documents.movements.store', $this->document), ['action' => 'finalized'])
+        $this->actingAs($this->secretary)->post(route('documents.movements.store', $this->document), ['action' => 'signed', 'signed_by' => $this->lawyer->id])
             ->assertSessionHasErrors('action');
         $this->actingAs($this->secretary)->post(route('documents.movements.store', $this->document), ['action' => 'sent_out'])
             ->assertSessionHasErrors('action');
@@ -100,13 +103,13 @@ class OutOfOfficeTest extends TestCase
         $this->assertFalse($document->isOutOfOffice());
         $this->assertNull($document->out_destination);
         $this->assertSame('Cabinet 1', $document->physical_location);
-        $this->assertSame(DocumentStatus::Signed, $document->status);
+        $this->assertSame(DocumentStatus::Finalized, $document->status);
         $this->assertSame(2, $document->movements()->count());
 
         // the normal workflow continues
-        $this->actingAs($this->secretary)->post(route('documents.movements.store', $this->document), ['action' => 'finalized'])
+        $this->actingAs($this->secretary)->post(route('documents.movements.store', $this->document), ['action' => 'signed', 'signed_by' => $this->lawyer->id])
             ->assertSessionHasNoErrors();
-        $this->assertSame(DocumentStatus::Finalized, $document->fresh()->status);
+        $this->assertSame(DocumentStatus::SignedSealed, $document->fresh()->status);
     }
 
     public function test_out_of_office_documents_are_listed_on_the_dashboard_and_document_list(): void

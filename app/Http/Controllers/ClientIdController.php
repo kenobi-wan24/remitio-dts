@@ -18,7 +18,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class ClientIdController extends Controller
 {
-    public const DIR = 'client-ids';
+    public const DIR = ClientId::DIR;
 
     public function store(Request $request, Client $client): RedirectResponse
     {
@@ -32,17 +32,7 @@ class ClientIdController extends Controller
             'scan.max' => 'The scan must be 10 MB or smaller.',
         ]);
 
-        $scan = $request->file('scan');
-
-        $client->validIds()->create([
-            'id_type' => trim($data['id_type']),
-            'id_number' => trim($data['id_number']),
-            'scan_path' => $scan?->store(self::DIR."/{$client->id}", AttachmentService::DISK),
-            'scan_name' => $scan?->getClientOriginalName(),
-            'scan_mime' => $scan?->getClientMimeType(),
-            'scan_size' => $scan?->getSize(),
-            'created_by' => $request->user()->id,
-        ]);
+        ClientId::recordFor($client, $data['id_type'], $data['id_number'], $request->file('scan'), $request->user()->id);
 
         return back()->with('success', "Valid ID added for {$client->display_name}.");
     }

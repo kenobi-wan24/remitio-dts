@@ -78,7 +78,7 @@ class ReportController extends Controller
 
         if ($request->input('format') === 'csv') {
             return $this->csv('documents-report', [
-                'Tracking Code', 'Date Received', 'Title', 'Type', 'Client', 'Case', 'Status', 'With', 'Location',
+                'Tracking Code', 'Date Requested In', 'Title', 'Type', 'Client', 'Case', 'Status', 'With', 'Location',
                 'Notarial Reference', 'Urgency', 'On Hold', ...(config('dts.deadlines') ? ['Deadline'] : []),
             ], $documents->map(fn (Document $d) => [
                 $d->tracking_code, $d->date_received->toDateString(), $d->title, $d->documentType?->name,
@@ -95,7 +95,7 @@ class ReportController extends Controller
             'truncated' => $total > self::MAX_ROWS,
             'summary' => collect(DocumentStatus::cases())->mapWithKeys(fn ($s) => [$s->label() => $documents->where('status', $s)->count()]),
             'filters' => array_filter([
-                'Received' => $this->rangeLabel($from, $to),
+                'Requested In' => $this->rangeLabel($from, $to),
                 'Status' => $status ? DocumentStatus::from($status)->label() : null,
                 'Type' => $type ? DocumentType::find($type)?->name : null,
                 'With' => $holder ? User::find($holder)?->name : null,

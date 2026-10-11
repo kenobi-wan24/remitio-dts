@@ -27,7 +27,7 @@
     @if ($waitingOnLawyer)
         <div class="flex items-start gap-2 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
             <x-icon name="clock" class="h-5 w-5 shrink-0" />
-            <p>Waiting for the lawyer. {{ $document->status === \App\Enums\DocumentStatus::ForReview ? 'Only the lawyer can approve it or ask for revision.' : 'The lawyer (or you, once it is signed) marks it as signed.' }}</p>
+            <p>Waiting for the lawyer. Only the lawyer can approve it or ask for revision.</p>
         </div>
     @endif
 
@@ -65,9 +65,9 @@
     {{-- 2. What this step needs --}}
     <div class="grid gap-4 sm:grid-cols-2">
         {{-- Send to lawyer --}}
-        <div x-show="is('submitted_for_review', 'resubmitted', 'sent_for_signature')">
+        <div x-show="is('submitted_for_review', 'resubmitted')">
             <x-form.select name="lawyer_id" label="Send to (lawyer)" :options="$lawyers" :selected="$defaultLawyerId"
-                x-bind:disabled="! is('submitted_for_review', 'resubmitted', 'sent_for_signature')" />
+                x-bind:disabled="! is('submitted_for_review', 'resubmitted')" />
         </div>
 
         {{-- Draft / corrected file --}}
@@ -193,9 +193,8 @@
                     approved: 'Optional',
                     revision_required: 'Required — what to fix, e.g. Correct the client\'s middle name and revise paragraph 3',
                     resubmitted: 'e.g. Revised per your comments',
-                    sent_for_signature: 'e.g. Printed, 2 copies',
-                    signed: 'Optional',
-                    finalized: 'e.g. Sealed; client copy prepared',
+                    signed: 'e.g. Sealed; client copy prepared',
+                    finalized: 'e.g. Content final; printed for signature and seal',
                     released_to_client: 'e.g. Original and 1 copy released',
                     archived: 'e.g. Matter completed',
                     received: 'Required — why it came back',

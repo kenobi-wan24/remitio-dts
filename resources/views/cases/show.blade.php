@@ -5,7 +5,7 @@
             @can('delete', $case)
                 <x-confirm-delete :action="route('cases.destroy', $case)"
                     title="Delete case {{ $case->case_code }}?"
-                    message="The case will be moved to Removed entries. This is only allowed if it has no documents. To end a matter, set its status to Closed instead." />
+                    message="The case will be moved to Deleted records. This is only allowed if it has no documents. To end a matter, set its status to Closed instead." />
             @endcan
         </x-slot>
     </x-page-header>

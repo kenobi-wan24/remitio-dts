@@ -14,8 +14,8 @@ use Illuminate\Support\Facades\DB;
 /**
  * Workflow v2 — the single place where a document moves.
  *
- *   Received → For Drafting → For Review ⇄ Revision Required → Approved
- *   → For Signature → Signed → Finalized → Released → Archived
+ *   Request In → Draft → Review ⇄ Revision → Approved
+ *   → Finalized → Signature & Sealed → Released → Archived
  *
  * Every movement = 1 history row + the document's status/holder/location updated in the
  * SAME transaction (row-locked), so they can never disagree.
@@ -28,10 +28,9 @@ class DocumentTracker
         'for_drafting' => [MovementAction::SubmittedForReview],
         'for_review' => [MovementAction::Approved, MovementAction::RevisionRequired],
         'revision_required' => [MovementAction::Resubmitted],
-        'approved' => [MovementAction::SentForSignature],
-        'for_signature' => [MovementAction::Signed],
-        'signed' => [MovementAction::Finalized],
-        'finalized' => [MovementAction::ReleasedToClient],
+        'approved' => [MovementAction::Finalized],
+        'finalized' => [MovementAction::Signed],          // "Signed & Sealed"
+        'signed_sealed' => [MovementAction::ReleasedToClient],
         'released' => [MovementAction::Archived, MovementAction::Received],
         'archived' => [],
     ];
@@ -53,9 +52,8 @@ class DocumentTracker
         'approved' => DocumentStatus::Approved,
         'revision_required' => DocumentStatus::RevisionRequired,
         'resubmitted' => DocumentStatus::ForReview,
-        'sent_for_signature' => DocumentStatus::ForSignature,
-        'signed' => DocumentStatus::Signed,
         'finalized' => DocumentStatus::Finalized,
+        'signed' => DocumentStatus::SignedSealed,
         'released_to_client' => DocumentStatus::Released,
         'archived' => DocumentStatus::Archived,
     ];
@@ -137,8 +135,8 @@ class DocumentTracker
             // Who holds it next — set from the status, so nobody has to pick a person on each step
             $toHolder = match ($action) {
                 MovementAction::Forwarded => (int) $data['to_user_id'],
-                MovementAction::SubmittedForReview, MovementAction::Resubmitted, MovementAction::SentForSignature => (int) $data['lawyer_id'],
-                MovementAction::Approved, MovementAction::RevisionRequired, MovementAction::Signed => $this->sentToLawyerBy($document) ?? $fromHolder,
+                MovementAction::SubmittedForReview, MovementAction::Resubmitted => (int) $data['lawyer_id'],
+                MovementAction::Approved, MovementAction::RevisionRequired => $this->sentToLawyerBy($document) ?? $fromHolder,
                 MovementAction::ReleasedToClient, MovementAction::Archived => null,
                 MovementAction::Received => $actor->id,
                 // R2: the responsible person doesn't change while the copy is out
@@ -276,9 +274,8 @@ class DocumentTracker
             MovementAction::SubmittedForReview, MovementAction::Resubmitted => "Sent to {$to} for review.",
             MovementAction::Approved => 'Approved. The approved version is now marked FINAL.',
             MovementAction::RevisionRequired => "Returned to {$to} for revision.",
-            MovementAction::SentForSignature => "Sent to {$to} for signature.",
-            MovementAction::Signed => "Marked as signed. Back with {$to} for finalizing.",
-            MovementAction::Finalized => 'Finalized. Ready to release.',
+            MovementAction::Signed => 'Marked as signed and sealed. Ready to release.',
+            MovementAction::Finalized => 'Finalized. Waiting for the lawyer\'s signature and seal.',
             MovementAction::ReleasedToClient => 'Released to client. The document is now out of the office.',
             MovementAction::Archived => 'Document archived.',
             MovementAction::Received => "Received back. Now with {$to}.",

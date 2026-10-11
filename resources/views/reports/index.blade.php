@@ -14,9 +14,9 @@
     <div class="grid gap-6 lg:grid-cols-2">
         {{-- 1. Documents --}}
         <x-card title="Documents Report">
-            <p class="-mt-1 mb-4 text-sm text-slate-500">Documents received in a period, with status, holder, location and notarial reference.</p>
+            <p class="-mt-1 mb-4 text-sm text-slate-500">Documents requested in during a period, with status, holder, location and notarial reference.</p>
             <form method="GET" action="{{ route('reports.documents') }}" target="_blank" class="grid gap-3 sm:grid-cols-2">
-                <div><label class="{{ $label }}">Received from</label><input type="date" name="from" value="{{ $monthStart }}" class="{{ $input }}"></div>
+                <div><label class="{{ $label }}">Requested in from</label><input type="date" name="from" value="{{ $monthStart }}" class="{{ $input }}"></div>
                 <div><label class="{{ $label }}">To</label><input type="date" name="to" value="{{ $today }}" class="{{ $input }}"></div>
                 <div>
                     <label class="{{ $label }}">Status</label>

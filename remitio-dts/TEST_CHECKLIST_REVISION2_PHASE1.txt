@@ -1,0 +1,45 @@
+REVISION 2 — PHASE 1: WORKFLOW & STRUCTURE
+Accounts (password: password): admin@remitio.test · attorney@remitio.test (Lawyer) · secretary@remitio.test
+
+AFTER EXTRACTING (over your existing folder)
+  php artisan migrate          (converts old statuses and Consultation cases)
+  php artisan config:clear
+  php artisan view:clear
+  (optional) php artisan test
+
+SIDEBAR
+[ ] Order is: Dashboard, Clients, Cases, Documents, Notarial Register
+
+CASES
+[ ] New Case → "Case Type" has NO "Consultation"
+[ ] Any old Consultation case now shows as "Other"
+
+DOCUMENT STATUS ORDER (Documents page tabs)
+[ ] All, Request In, Draft, Review, Revision, Approved, Finalized, Signature & Sealed, Released, Archived
+[ ] Reports → Documents → Status dropdown has the same order and names
+
+WORKFLOW (record a new document and walk it through)
+[ ] New document starts as "Request In"; history first line says "Request In"
+[ ] Start drafting → Draft → Submit for review → Review
+[ ] Lawyer: Revision required → Revision → Resubmit → Review → Approve → Approved
+[ ] Approved → only next step is "Finalize" → Finalized
+[ ] Finalized → only next step is "Mark as signed & sealed" (asks "Signed by") → Signature & Sealed
+[ ] Signature & Sealed → "Release to client" → Released → Archive
+[ ] There is NO "Send for signature" button anymore
+[ ] Released document → "Request in again" button (asks why it came back) → back to Request In
+[ ] Document page "Key dates" shows Request In, Approved, Finalized, Signed & Sealed, Released
+
+NOTARIAL
+[ ] "Add notarial entry" is available at Approved, Finalized and Signature & Sealed (not before, not after release)
+
+OLD DATA
+[ ] Documents that were For Signature / Signed / old Finalized now show "Signature & Sealed"
+[ ] Old history lines still display (nothing breaks on a document with old history)
+
+"REQUEST IN" WORDING
+[ ] Document form / page: "Date Requested In"
+[ ] Dashboard chart: "Documents Requested In (6 months)"
+[ ] Reports: "Requested In" column / "Requested in from" filter; CSV header "Date Requested In"
+
+DASHBOARD
+[ ] My Action Queue groups read: Awaiting Drafting · Drafting in Progress · Awaiting Review / Approval · Revisions to Make · To Finalize · Awaiting Signature & Seal · Ready for Release

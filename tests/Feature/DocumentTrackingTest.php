@@ -15,8 +15,8 @@ use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
- * Workflow v2: Received → For Drafting → For Review ⇄ Revision Required → Approved
- * → For Signature → Signed → Finalized → Released → Archived
+ * Workflow v3: Request In → Draft → Review ⇄ Revision → Approved
+ * → Finalized → Signature & Sealed → Released → Archived
  */
 class DocumentTrackingTest extends TestCase
 {
@@ -93,11 +93,12 @@ class DocumentTrackingTest extends TestCase
         $this->assertSame(DocumentStatus::Approved, $d->fresh()->status);
         $this->assertTrue($v2->fresh()->is_final, 'approval marks the chosen version FINAL');
 
-        $this->step($s, $d, ['action' => 'sent_for_signature', 'lawyer_id' => $l->id])->assertSessionHasNoErrors();
-        $this->step($l, $d, ['action' => 'signed', 'signed_by' => $l->id])->assertSessionHasNoErrors();
-        $this->assertSame(DocumentStatus::Signed, $d->fresh()->status);
-
         $this->step($s, $d, ['action' => 'finalized'])->assertSessionHasNoErrors();
+        $this->assertSame(DocumentStatus::Finalized, $d->fresh()->status);
+
+        $this->step($s, $d, ['action' => 'signed', 'signed_by' => $l->id])->assertSessionHasNoErrors();
+        $this->assertSame(DocumentStatus::SignedSealed, $d->fresh()->status);
+
         $this->step($s, $d, ['action' => 'released_to_client', 'received_by' => 'Juan Dela Cruz'])->assertSessionHasNoErrors();
         $this->assertSame(DocumentStatus::Released, $d->fresh()->status);
         $this->assertNull($d->fresh()->current_holder_id);
@@ -105,7 +106,7 @@ class DocumentTrackingTest extends TestCase
 
         $this->step($s, $d, ['action' => 'archived', 'location' => 'Archive Room - Box 4'])->assertSessionHasNoErrors();
         $this->assertSame(DocumentStatus::Archived, $d->fresh()->status);
-        $this->assertCount(11, $d->fresh()->movements);
+        $this->assertCount(10, $d->fresh()->movements);
     }
 
     public function test_steps_cannot_be_skipped(): void

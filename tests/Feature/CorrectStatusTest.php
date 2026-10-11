@@ -17,40 +17,40 @@ class CorrectStatusTest extends TestCase
     public function test_the_lawyer_can_correct_a_wrong_status_with_a_reason(): void
     {
         $lawyer = User::factory()->admin()->create();
-        $document = Document::factory()->create(['status' => DocumentStatus::Signed]);
+        $document = Document::factory()->create(['status' => DocumentStatus::SignedSealed]);
 
         $this->actingAs($lawyer)->post(route('documents.movements.store', $document), [
             'action' => 'status_corrected',
-            'corrected_status' => 'for_signature',
-            'remarks' => 'Marked as signed by mistake; not yet signed',
+            'corrected_status' => 'finalized',
+            'remarks' => 'Marked as signed and sealed by mistake; not yet signed',
         ])->assertSessionHasNoErrors();
 
         $document->refresh();
-        $this->assertSame(DocumentStatus::ForSignature, $document->status);
+        $this->assertSame(DocumentStatus::Finalized, $document->status);
         $this->assertSame(MovementAction::StatusCorrected, $document->movements->first()->action);
-        $this->assertSame('Marked as signed by mistake; not yet signed', $document->movements->first()->remarks);
+        $this->assertSame('Marked as signed and sealed by mistake; not yet signed', $document->movements->first()->remarks);
     }
 
     public function test_a_reason_is_required(): void
     {
         $lawyer = User::factory()->admin()->create();
-        $document = Document::factory()->create(['status' => DocumentStatus::Signed]);
+        $document = Document::factory()->create(['status' => DocumentStatus::SignedSealed]);
 
         $this->actingAs($lawyer)->post(route('documents.movements.store', $document), [
-            'action' => 'status_corrected', 'corrected_status' => 'for_signature',
+            'action' => 'status_corrected', 'corrected_status' => 'finalized',
         ])->assertSessionHasErrors('remarks');
     }
 
     public function test_staff_cannot_correct_a_status(): void
     {
         $staff = User::factory()->create();
-        $document = Document::factory()->create(['status' => DocumentStatus::Signed]);
+        $document = Document::factory()->create(['status' => DocumentStatus::SignedSealed]);
 
         $this->actingAs($staff)->post(route('documents.movements.store', $document), [
-            'action' => 'status_corrected', 'corrected_status' => 'for_signature', 'remarks' => 'x',
+            'action' => 'status_corrected', 'corrected_status' => 'finalized', 'remarks' => 'x',
         ])->assertSessionHasErrors('action');
 
-        $this->assertSame(DocumentStatus::Signed, $document->fresh()->status);
+        $this->assertSame(DocumentStatus::SignedSealed, $document->fresh()->status);
     }
 
     public function test_an_archived_document_can_still_be_corrected_by_the_lawyer(): void

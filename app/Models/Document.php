@@ -98,10 +98,11 @@ class Document extends Model
             ->first(fn ($m) => in_array($m->action, $actions, true))?->acted_at;
 
         return [
-            'Received' => $this->movements->last()?->acted_at,
+            'Request In' => $this->movements->last()?->acted_at,
             'Drafted (submitted for review)' => $at(MovementAction::SubmittedForReview),
             'Approved' => $at(MovementAction::Approved),
-            'Signed' => $at(MovementAction::Signed),
+            'Finalized' => $at(MovementAction::Finalized),
+            'Signed & Sealed' => $at(MovementAction::Signed),
             'Notarial entry recorded' => $this->notarialEntry?->created_at,
             'Released' => $at(MovementAction::ReleasedToClient),
         ];

@@ -1,14 +1,14 @@
 @php use App\Enums\DocumentStatus; @endphp
 
-<x-app-layout :title="$showTrashed ? 'Removed Documents' : 'Documents'">
-    <x-page-header :title="$showTrashed ? 'Removed Documents' : 'Documents'"
-        subtitle="{{ number_format($documents->total()) }} {{ str('document')->plural($documents->total()) }} {{ $showTrashed ? 'removed' : 'found' }}">
+<x-app-layout :title="$showTrashed ? 'Deleted Documents' : 'Documents'">
+    <x-page-header :title="$showTrashed ? 'Deleted Documents' : 'Documents'"
+        subtitle="{{ number_format($documents->total()) }} {{ str('document')->plural($documents->total()) }} {{ $showTrashed ? 'deleted' : 'found' }}">
         <x-slot name="actions">
             @can('admin')
                 @if ($showTrashed)
                     <x-button variant="secondary" :href="route('documents.index')" icon="arrow-left">Back to Documents</x-button>
                 @else
-                    <x-button variant="ghost" :href="route('documents.index', ['view' => 'deleted'])" icon="trash">Removed entries</x-button>
+                    <x-button variant="ghost" :href="route('documents.index', ['view' => 'deleted'])" icon="trash">Deleted records</x-button>
                 @endif
             @endcan
             @unless ($showTrashed)
@@ -101,7 +101,7 @@
         @if (request()->hasAny(['q', 'type', 'holder', 'show', 'urgency', 'status', 'n_doc', 'n_page', 'n_book', 'n_series']))
             <x-empty-state icon="magnifying-glass" title="No matching documents" message="Try another search term or clear the filters." />
         @elseif ($showTrashed)
-            <x-empty-state icon="trash" title="No removed entries" message="Removed documents will appear here and can be restored." />
+            <x-empty-state icon="trash" title="No deleted records" message="Deleted documents will appear here and can be restored." />
         @else
             <x-empty-state icon="document-text" title="No documents yet" message="Record the first document received by the office.">
                 <x-button :href="route('documents.create')" icon="plus">Record Document</x-button>

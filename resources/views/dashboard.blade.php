@@ -173,7 +173,7 @@
                     </time>
                 </div>
             @empty
-                <x-empty-state class="m-5" title="No document activity yet" message="Movements will appear here once documents are received and forwarded." />
+                <x-empty-state class="m-5" title="No document activity yet" message="Movements will appear here once documents are requested in and forwarded." />
             @endforelse
         </x-card>
 
@@ -230,7 +230,7 @@
             </x-card>
 
             {{-- Monthly intake --}}
-            <x-card title="Documents Received (6 months)">
+            <x-card title="Documents Requested In (6 months)">
                 <div class="flex h-36 items-end gap-2">
                     @foreach ($monthlyChart as $month)
                         <div class="flex h-full flex-1 flex-col items-center justify-end gap-1" title="{{ $month['full'] }}: {{ $month['count'] }}">

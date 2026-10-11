@@ -2,7 +2,7 @@
     <x-page-header title="New Client" subtitle="A client code will be assigned automatically when you save."
         :back="route('clients.index')" />
 
-    <form method="POST" action="{{ route('clients.store') }}" class="max-w-4xl">
+    <form method="POST" action="{{ route('clients.store') }}" enctype="multipart/form-data" class="max-w-4xl">
         @csrf
         @include('clients._form')
 
